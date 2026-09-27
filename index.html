@@ -66,6 +66,7 @@
       <div class="field">
         <label for="vipName">اسم الشخصية VIP</label>
         <input type="text" id="vipName" placeholder="الاسم الكامل">
+        <div id="dupWarning" class="notice hidden" style="margin-top:8px"></div>
       </div>
       <div class="field">
         <label for="vipWorkplace">مكان العمل / المؤسسة</label>
@@ -391,7 +392,38 @@
     document.getElementById('vipContact').value = '';
     document.getElementById('vipNeedsLetter').checked = false;
     vipError.classList.add('hidden');
+    document.getElementById('dupWarning').classList.add('hidden');
   }
+
+  /** تحقق تقريبي (وليس حرفياً) من وجود شخصية بنفس الاسم أو اسم مقارب مسجلة مسبقاً */
+  var dupCheckTimer = null;
+  document.getElementById('vipName').addEventListener('input', function () {
+    clearTimeout(dupCheckTimer);
+    var name = this.value.trim();
+    var warnBox = document.getElementById('dupWarning');
+    if (name.length < 3 || !APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PASTE_') === 0) {
+      warnBox.classList.add('hidden');
+      return;
+    }
+    dupCheckTimer = setTimeout(function () {
+      fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'checkVip', name: name })
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        if (!res.ok || !res.matches || res.matches.length === 0) {
+          warnBox.classList.add('hidden');
+          return;
+        }
+        warnBox.innerHTML = '<b>⚠️ تنويه:</b> توجد شخصية مسجلة مسبقاً بنفس الاسم أو باسم مقارب:' +
+          res.matches.map(function (m) {
+            return '<div style="margin-top:6px">' + m.full_name + ' — ' + m.workplace +
+              '<br><span class="muted">تمت دعوتها من قبل: ' + m.entered_by_name + '</span></div>';
+          }).join('');
+        warnBox.classList.remove('hidden');
+      }).catch(function () { /* فحص مساعد غير حرج؛ لا داعي لإظهار خطأ إذا فشل */ });
+    }, 500);
+  });
 
   function showOnly(sectionEl) {
     [vipSection, successSection, summarySection, thankYouSection].forEach(function (s) {

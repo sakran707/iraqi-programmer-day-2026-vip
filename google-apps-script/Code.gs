@@ -85,6 +85,72 @@ function findRowByCode_(sheet, code) {
   return null;
 }
 
+/* ---------- Fuzzy name matching (for duplicate-invite checking) ---------- */
+
+function normalizeArabicText_(s) {
+  return String(s || '')
+    .replace(/[ً-ْٰـ]/g, '')
+    .replace(/[إأآا]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function levenshtein_(a, b) {
+  var m = a.length, n = b.length;
+  if (m === 0) return n;
+  if (n === 0) return m;
+  var prev = [];
+  for (var j = 0; j <= n; j++) prev[j] = j;
+  for (var i = 1; i <= m; i++) {
+    var cur = [i];
+    for (var j = 1; j <= n; j++) {
+      cur[j] = a.charAt(i - 1) === b.charAt(j - 1)
+        ? prev[j - 1]
+        : 1 + Math.min(prev[j - 1], prev[j], cur[j - 1]);
+    }
+    prev = cur;
+  }
+  return prev[n];
+}
+
+/** تشابه بين 0 و1: مطابقة جزئية (بادئة/احتواء) تُعامل كتطابق شبه تام، وإلا تُحسب نسبة التقارب بمسافة Levenshtein */
+function nameSimilarity_(a, b) {
+  var na = normalizeArabicText_(a), nb = normalizeArabicText_(b);
+  if (!na || !nb) return 0;
+  if (na === nb) return 1;
+  if (na.indexOf(nb) !== -1 || nb.indexOf(na) !== -1) return 0.95;
+  var maxLen = Math.max(na.length, nb.length);
+  if (maxLen === 0) return 0;
+  return 1 - (levenshtein_(na, nb) / maxLen);
+}
+
+var DUP_SIMILARITY_THRESHOLD = 0.6;
+
+/**
+ * يستخدمها العضو (بدون كلمة مرور) قبل إضافة شخصية VIP، للتأكد إذا كانت
+ * مدعوّة مسبقاً من عضو آخر. المطابقة تقريبية (اسم مقارب) وليست حرفية،
+ * حتى تلتقط الاختلافات البسيطة بالكتابة أو الألقاب.
+ */
+function handleCheckVip_(body) {
+  var query = String(body.name || '').trim();
+  if (normalizeArabicText_(query).length < 3) return { ok: true, matches: [] };
+
+  var sheet = getSheet_();
+  var rows = readAllRows_(sheet);
+  var matches = rows
+    .map(function (r) { return { row: r, score: nameSimilarity_(query, r.full_name) }; })
+    .filter(function (s) { return s.score >= DUP_SIMILARITY_THRESHOLD; })
+    .sort(function (a, b) { return b.score - a.score; })
+    .slice(0, 5)
+    .map(function (s) {
+      return { full_name: s.row.full_name, workplace: s.row.workplace, entered_by_name: s.row.entered_by_name };
+    });
+
+  return { ok: true, matches: matches };
+}
+
 /* ---------- Public actions ---------- */
 
 function handleAddVip_(body) {
@@ -288,6 +354,7 @@ function doPost(e) {
     var body = JSON.parse((e.postData && e.postData.contents) || '{}');
     var action = body.action;
     if (action === 'addVip') return jsonOut_(handleAddVip_(body));
+    if (action === 'checkVip') return jsonOut_(handleCheckVip_(body));
     if (action === 'verify') return jsonOut_(handleVerify_(body.code || ''));
     if (action === 'setPriorities') return jsonOut_(handleSetPriorities_(body));
     if (action === 'adminList') return jsonOut_(handleAdminList_(body));
