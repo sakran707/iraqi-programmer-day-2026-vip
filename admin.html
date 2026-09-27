@@ -29,6 +29,13 @@
   #printReport th{background:#EEF1F4;color:var(--navy)}
   #printReport .p-footer{margin-top:16px;font-size:.75rem;color:var(--muted)}
   #printReport .p-subhead{font-size:1rem;color:var(--navy);margin:22px 0 8px}
+  #printReport .p-group{margin-bottom:12px;page-break-inside:avoid}
+  #printReport .p-group-head{
+    background:var(--navy);color:#fff;padding:7px 10px;font-size:.85rem;font-weight:800;
+    border-radius:6px 6px 0 0;
+  }
+  #printReport .p-group-head span{font-weight:600;color:var(--gold)}
+  #printReport .p-group table{margin-top:0}
 
   @media print{
     body.printing > *:not(#printReport){display:none !important}
@@ -164,14 +171,21 @@
   }
 
   /** يحسب عدد الشخصيات VIP اللي أضافها كل عضو، من إجمالي البيانات (بدون تأثير البحث) */
-  function computeEntrantBreakdown() {
+  /** يجمّع أي قائمة صفوف حسب اسم العضو المُدخل، مرتبة تنازلياً حسب عدد الشخصيات */
+  function groupByEntrant(rowsList) {
     var map = {};
-    allRows.forEach(function (r) {
+    rowsList.forEach(function (r) {
       var key = r.entered_by_name;
-      if (!map[key]) map[key] = { name: r.entered_by_name, position: r.entered_by_position, count: 0 };
-      map[key].count++;
+      if (!map[key]) map[key] = { name: r.entered_by_name, position: r.entered_by_position, items: [] };
+      map[key].items.push(r);
     });
-    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.count - a.count; });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.items.length - a.items.length; });
+  }
+
+  function computeEntrantBreakdown() {
+    return groupByEntrant(allRows).map(function (g) {
+      return { name: g.name, position: g.position, count: g.items.length };
+    });
   }
 
   function renderEntrantBreakdown() {
@@ -241,17 +255,25 @@
     var generatedAt = now.toISOString().replace('T', ' ').slice(0, 16);
     var query = document.getElementById('searchInput').value.trim();
 
-    var rowsHtml = rows.map(function (r) {
-      return '<tr>' +
-        '<td>' + r.vip_code + '</td>' +
-        '<td>' + r.full_name + '</td>' +
-        '<td>' + r.workplace + '</td>' +
-        '<td>' + (r.position || '—') + '</td>' +
-        '<td>' + r.entered_by_name + '</td>' +
-        '<td>' + (r.priority || 'عادية') + '</td>' +
-        '<td>' + (r.needs_letter === 'نعم' ? 'نعم' : 'لا') + '</td>' +
-        '<td>' + r.status + '</td>' +
-      '</tr>';
+    var groupsHtml = groupByEntrant(rows).map(function (g) {
+      var itemRows = g.items.map(function (r) {
+        return '<tr>' +
+          '<td>' + r.vip_code + '</td>' +
+          '<td>' + r.full_name + '</td>' +
+          '<td>' + r.workplace + '</td>' +
+          '<td>' + (r.position || '—') + '</td>' +
+          '<td>' + (r.priority || 'عادية') + '</td>' +
+          '<td>' + (r.needs_letter === 'نعم' ? 'نعم' : 'لا') + '</td>' +
+          '<td>' + r.status + '</td>' +
+        '</tr>';
+      }).join('');
+      return '<div class="p-group">' +
+        '<div class="p-group-head">' + g.name + ' — ' + g.position + ' <span>(' + g.items.length + ' شخصية)</span></div>' +
+        '<table>' +
+          '<thead><tr><th>رقم VIP</th><th>الاسم</th><th>مكان العمل</th><th>المنصب</th><th>الأولوية</th><th>كتاب رسمي</th><th>الحالة</th></tr></thead>' +
+          '<tbody>' + itemRows + '</tbody>' +
+        '</table>' +
+      '</div>';
     }).join('');
 
     var breakdownRowsHtml = computeEntrantBreakdown().map(function (b) {
@@ -274,15 +296,13 @@
         '<div>حضر: <b>' + allRows.filter(function (r) { return r.status === 'حضر'; }).length + '</b></div>' +
         '<div>لم يحضر: <b>' + allRows.filter(function (r) { return r.status === 'لم يحضر'; }).length + '</b></div>' +
       '</div>' +
-      '<table>' +
-        '<thead><tr><th>رقم VIP</th><th>الاسم</th><th>مكان العمل</th><th>المنصب</th><th>أضيفت بواسطة</th><th>الأولوية</th><th>كتاب رسمي</th><th>الحالة</th></tr></thead>' +
-        '<tbody>' + rowsHtml + '</tbody>' +
-      '</table>' +
-      '<h2 class="p-subhead">عدد الشخصيات المضافة حسب كل عضو</h2>' +
+      '<h2 class="p-subhead" style="margin-top:0">عدد الشخصيات المضافة حسب كل عضو</h2>' +
       '<table>' +
         '<thead><tr><th>اسم العضو</th><th>المنصب</th><th>عدد الشخصيات المضافة</th></tr></thead>' +
         '<tbody>' + breakdownRowsHtml + '</tbody>' +
       '</table>' +
+      '<h2 class="p-subhead">تفاصيل الشخصيات حسب كل عضو</h2>' +
+      groupsHtml +
       '<div class="p-footer">عدد الشخصيات بالتقرير: ' + rows.length + ' — وثيقة إدارية، غير مخصصة للنشر العام</div>';
 
     document.body.classList.add('printing');
