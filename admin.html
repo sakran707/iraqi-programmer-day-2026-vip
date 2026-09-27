@@ -17,31 +17,33 @@
   .detail-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:.9rem}
   .detail-row b{color:var(--navy)}
 
-  /* ألوان التقرير المطبوع — نفس هوية مشروع فحص الانتخابات (برتقالي/ذهبي بدل الكحلي) */
+  /* ألوان التقرير المطبوع — هوية رسمية: كحلي (Navy) + نيلي (Indigo) + برتقالي */
   #printReport{
     display:none;
-    --p-ink:#1E2329; --p-orange:#E2722A; --p-orange-soft:#FBEADE;
-    --p-gold:#E1A11C; --p-gold-soft:#FBF1D9; --p-muted:#6B7280; --p-line:#E4E7EB;
+    --p-ink:#1E2329; --p-navy:#0B2A43;
+    --p-indigo:#3F51B5; --p-indigo-soft:#E8EAF6;
+    --p-orange:#E2722A; --p-orange-soft:#FBEADE;
+    --p-muted:#6B7280; --p-line:#E4E7EB;
   }
-  #printReport .p-head{display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--p-orange);padding-bottom:10px;margin-bottom:14px}
+  #printReport .p-head{display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--p-navy);padding-bottom:10px;margin-bottom:14px}
   #printReport .p-head img{width:52px;height:52px;border-radius:50%}
-  #printReport .p-head h1{font-size:1.15rem;color:var(--p-orange)}
+  #printReport .p-head h1{font-size:1.15rem;color:var(--p-navy)}
   #printReport .p-head p{font-size:.85rem;color:var(--p-muted)}
   #printReport .p-stats{display:flex;gap:18px;margin-bottom:16px;font-size:.9rem;color:var(--p-ink)}
-  #printReport .p-stats b{color:var(--p-orange)}
+  #printReport .p-stats b{color:var(--p-indigo)}
   #printReport table{width:100%;border-collapse:collapse;font-size:.8rem;color:var(--p-ink)}
   #printReport th,#printReport td{border:1px solid var(--p-line);padding:6px 8px;text-align:right}
-  #printReport th{background:var(--p-gold-soft);color:var(--p-ink);font-weight:800}
+  #printReport th{background:var(--p-indigo-soft);color:var(--p-navy);font-weight:800}
   #printReport .p-footer{margin-top:16px;font-size:.75rem;color:var(--p-muted)}
-  #printReport .p-subhead{font-size:1rem;color:var(--p-orange);margin:22px 0 8px}
+  #printReport .p-subhead{font-size:1rem;color:var(--p-navy);margin:22px 0 8px}
   #printReport .p-group{margin-bottom:12px;page-break-inside:avoid}
   #printReport .p-group-head{
-    background:var(--p-orange-soft);color:var(--p-ink);padding:7px 10px;font-size:.85rem;font-weight:800;
+    background:var(--p-orange-soft);color:var(--p-navy);padding:7px 10px;font-size:.85rem;font-weight:800;
     border:1px solid var(--p-orange);border-bottom:none;border-radius:6px 6px 0 0;
   }
   #printReport .p-group-head span{font-weight:700;color:var(--p-orange)}
   #printReport .p-group table{margin-top:0}
-  #printReport .p-letter-flag{font-size:.72rem;font-weight:800;color:#9A6B00;white-space:nowrap}
+  #printReport .p-letter-flag{font-size:.72rem;font-weight:800;color:var(--p-orange);white-space:nowrap}
 
   @media print{
     body.printing > *:not(#printReport){display:none !important}
