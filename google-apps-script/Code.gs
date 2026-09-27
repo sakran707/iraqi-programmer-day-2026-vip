@@ -115,15 +115,38 @@ function levenshtein_(a, b) {
   return prev[n];
 }
 
-/** تشابه بين 0 و1: مطابقة جزئية (بادئة/احتواء) تُعامل كتطابق شبه تام، وإلا تُحسب نسبة التقارب بمسافة Levenshtein */
+/**
+ * تشابه على مستوى الكلمات: نسبة كلمات الاسم الأقصر اللي لها كلمة مقاربة
+ * بالاسم الآخر. يلتقط اختلاف ترتيب الكلمات أو نقصان/زيادة لقب أو اسم
+ * أب لم يلتقطه التشابه الحرفي للسلسلة كاملة (مثال: "احمد كريم علي" مقابل
+ * "الدكتور احمد كريم علي حسين").
+ */
+function tokenSimilarity_(a, b) {
+  var ta = normalizeArabicText_(a).split(' ').filter(function (w) { return w.length > 0; });
+  var tb = normalizeArabicText_(b).split(' ').filter(function (w) { return w.length > 0; });
+  if (ta.length === 0 || tb.length === 0) return 0;
+  var matched = 0;
+  ta.forEach(function (wa) {
+    var best = 0;
+    tb.forEach(function (wb) {
+      var sim = wa === wb ? 1 : 1 - (levenshtein_(wa, wb) / Math.max(wa.length, wb.length));
+      if (sim > best) best = sim;
+    });
+    if (best >= 0.75) matched++;
+  });
+  return matched / Math.min(ta.length, tb.length);
+}
+
+/** تشابه بين 0 و1: مطابقة جزئية (بادئة/احتواء) تُعامل كتطابق شبه تام، وإلا أعلى قيمة بين تقارب السلسلة كاملة وتقارب الكلمات */
 function nameSimilarity_(a, b) {
   var na = normalizeArabicText_(a), nb = normalizeArabicText_(b);
   if (!na || !nb) return 0;
   if (na === nb) return 1;
   if (na.indexOf(nb) !== -1 || nb.indexOf(na) !== -1) return 0.95;
   var maxLen = Math.max(na.length, nb.length);
-  if (maxLen === 0) return 0;
-  return 1 - (levenshtein_(na, nb) / maxLen);
+  var wholeSim = maxLen === 0 ? 0 : 1 - (levenshtein_(na, nb) / maxLen);
+  var tokSim = tokenSimilarity_(a, b);
+  return Math.max(wholeSim, tokSim);
 }
 
 var DUP_SIMILARITY_THRESHOLD = 0.6;
