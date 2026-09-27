@@ -216,8 +216,8 @@ input:focus,select:focus,textarea:focus{
   font-weight:800;font-size:1.1rem;color:var(--navy);
   background:var(--gold-soft);display:inline-block;padding:6px 14px;border-radius:999px;margin:8px 0 14px;
 }
-.qr-wrap{margin:14px auto;width:180px;height:180px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px;background:#fff}
-.qr-wrap img{width:100%;height:100%;display:block}
+.qr-wrap{margin:14px auto;width:230px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px;background:#fff}
+.qr-wrap img{width:100%;height:auto;display:block;border-radius:6px}
 
 /* Summary cards (index.html, mobile-friendly alternative to a wide table) */
 .vip-summary-card{

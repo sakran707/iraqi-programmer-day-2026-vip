@@ -197,16 +197,144 @@
   }
 
   function qrUrlFor(targetUrl) {
-    return 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(targetUrl);
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=' + encodeURIComponent(targetUrl);
   }
 
-  function setupQrActions(qrUrl, code, verifyUrl) {
+  function loadImageEl(src, crossOrigin) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      if (crossOrigin) img.crossOrigin = crossOrigin;
+      img.onload = function () { resolve(img); };
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+
+  function roundRectPath(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  function wrapCenteredText(ctx, text, cx, y, maxWidth, lineHeight) {
+    var words = String(text).split(' ');
+    var line = '', lines = [];
+    words.forEach(function (w) {
+      var test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = w; }
+      else { line = test; }
+    });
+    if (line) lines.push(line);
+    lines.forEach(function (l, i) { ctx.fillText(l, cx, y + i * lineHeight); });
+    return y + (lines.length - 1) * lineHeight;
+  }
+
+  /** يركّب بطاقة VIP رسمية (شعار + عنوان الفعالية + اسم الشخصية + QR + الرمز) على Canvas */
+  function buildVipBadge(data) {
+    return document.fonts.ready.then(function () {
+      return Promise.all([loadImageEl('assets/union-logo.webp'), loadImageEl(data.qrUrl, 'anonymous')]);
+    }).then(function (imgs) {
+      var logoImg = imgs[0], qrImg = imgs[1];
+      var W = 480, H = 720;
+      var canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = H;
+      var ctx = canvas.getContext('2d');
+
+      ctx.fillStyle = '#F4F5F7';
+      ctx.fillRect(0, 0, W, H);
+      roundRectPath(ctx, 8, 8, W - 16, H - 16, 20);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      ctx.save();
+      roundRectPath(ctx, 8, 8, W - 16, H - 16, 20);
+      ctx.clip();
+
+      var headerH = 170;
+      ctx.fillStyle = '#0B2A43';
+      ctx.fillRect(8, 8, W - 16, headerH);
+
+      var cx = W / 2, cy = 8 + 66, r = 42;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.clip();
+      ctx.drawImage(logoImg, cx - r, cy - r, r * 2, r * 2);
+      ctx.restore();
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = '#C9A227';
+      ctx.stroke();
+
+      ctx.direction = 'rtl';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#C9A227';
+      ctx.font = '700 14px Cairo, sans-serif';
+      ctx.fillText('نقابة المبرمجين العراقيين', cx, cy + r + 24);
+
+      ctx.fillStyle = '#0B2A43';
+      ctx.font = '800 22px Cairo, sans-serif';
+      ctx.fillText('يوم المبرمج العراقي 2026', cx, headerH + 8 + 38);
+      ctx.fillStyle = '#64748B';
+      ctx.font = '600 13px Cairo, sans-serif';
+      ctx.fillText('9–10 تشرين الأول 2026', cx, headerH + 8 + 60);
+
+      var pillW = 140, pillH = 30, pillY = headerH + 8 + 78;
+      roundRectPath(ctx, cx - pillW / 2, pillY, pillW, pillH, 15);
+      ctx.fillStyle = '#F7EFD6';
+      ctx.fill();
+      ctx.fillStyle = '#0B2A43';
+      ctx.font = '800 14px Cairo, sans-serif';
+      ctx.fillText('بطاقة شخصية VIP', cx, pillY + 20);
+
+      ctx.fillStyle = '#16232E';
+      ctx.font = '800 23px Cairo, sans-serif';
+      var y = wrapCenteredText(ctx, data.name, cx, pillY + pillH + 38, W - 70, 29);
+
+      ctx.fillStyle = '#64748B';
+      ctx.font = '600 14px Cairo, sans-serif';
+      var meta = data.workplace + (data.position ? ' — ' + data.position : '');
+      y = wrapCenteredText(ctx, meta, cx, y + 26, W - 70, 20);
+
+      var qrSize = 210, qrY = y + 30;
+      roundRectPath(ctx, cx - qrSize / 2 - 10, qrY - 10, qrSize + 20, qrSize + 20, 14);
+      ctx.fillStyle = '#fff';
+      ctx.fill();
+      ctx.strokeStyle = '#E3E6EA';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.drawImage(qrImg, cx - qrSize / 2, qrY, qrSize, qrSize);
+
+      ctx.fillStyle = '#0B2A43';
+      ctx.font = '800 18px Cairo, sans-serif';
+      ctx.direction = 'ltr';
+      ctx.fillText(data.code, cx, qrY + qrSize + 34);
+      ctx.direction = 'rtl';
+
+      ctx.fillStyle = '#9AA7B2';
+      ctx.font = '600 11px Cairo, sans-serif';
+      ctx.fillText('الأماكن المخصصة: الصف الثاني والثالث — قاعة الملتقى VIP', cx, H - 22);
+
+      ctx.restore();
+      return canvas;
+    });
+  }
+
+  function setupQrActions(qrUrl, code, verifyUrl, getBestSrc) {
     var downloadBtn = document.getElementById('qrDownloadBtn');
     var shareBtn = document.getElementById('qrShareBtn');
     var fileName = code + '.png';
 
     downloadBtn.onclick = function () {
-      fetch(qrUrl).then(function (r) { return r.blob(); }).then(function (blob) {
+      var src = getBestSrc();
+      fetch(src).then(function (r) { return r.blob(); }).then(function (blob) {
         var url = URL.createObjectURL(blob);
         var a = document.createElement('a');
         a.href = url;
@@ -223,7 +351,8 @@
     if (navigator.share) {
       shareBtn.classList.remove('hidden');
       shareBtn.onclick = function () {
-        fetch(qrUrl).then(function (r) { return r.blob(); }).then(function (blob) {
+        var src = getBestSrc();
+        fetch(src).then(function (r) { return r.blob(); }).then(function (blob) {
           var file = new File([blob], fileName, { type: blob.type || 'image/png' });
           if (navigator.canShare && navigator.canShare({ files: [file] })) {
             return navigator.share({
@@ -302,9 +431,18 @@
       });
       var verifyUrl = verifyUrlFor(res.vip_code);
       var qrUrl = qrUrlFor(verifyUrl);
+      var badgeDataUrl = null;
       document.getElementById('successCode').textContent = res.vip_code;
-      document.getElementById('successQr').src = qrUrl;
-      setupQrActions(qrUrl, res.vip_code, verifyUrl);
+      document.getElementById('successQr').src = qrUrl; // معاينة فورية بالرمز الخام لحين تجهيز البطاقة
+      buildVipBadge({
+        name: fullName, workplace: workplace, position: position, code: res.vip_code, qrUrl: qrUrl
+      }).then(function (canvas) {
+        badgeDataUrl = canvas.toDataURL('image/png');
+        document.getElementById('successQr').src = badgeDataUrl;
+      }).catch(function (err) {
+        console.warn('تعذر تركيب بطاقة VIP، سيتم استخدام رمز QR العادي بدلاً منها', err);
+      });
+      setupQrActions(qrUrl, res.vip_code, verifyUrl, function () { return badgeDataUrl || qrUrl; });
       showOnly(successSection);
     }).catch(function () {
       addVipBtn.disabled = false;
