@@ -43,7 +43,7 @@
     </div>
   </section>
 
-  <div id="postEntrantNotices" class="hidden">
+  <div id="postEntrantNotices">
     <div class="notice notice-restrict">
       <b>تنويه:</b>
       هذا الرابط خاص بأعضاء مجلس نقابة المبرمجين العراقيين واللجان المحددة حصراً. يُرجى عدم مشاركته أو نشره.
@@ -58,6 +58,10 @@
   <!-- Step 2: VIP data -->
   <section id="vipSection" class="card hidden">
     <h2>بيانات الشخصية VIP</h2>
+    <div id="waitlistNotice" class="notice hidden">
+      <b>تنويه:</b>
+      نظراً لمحدودية الأماكن المخصصة للشخصيات VIP، قد يتم نقل بعض الضيوف إلى قائمة الاحتياط في حال اكتمال المقاعد المتاحة.
+    </div>
     <div class="stack">
       <div class="field">
         <label for="vipName">اسم الشخصية VIP</label>
@@ -182,7 +186,6 @@
     entrantPicker.classList.add('hidden');
     entrantChip.classList.remove('hidden');
     suggestions.classList.add('hidden');
-    document.getElementById('postEntrantNotices').classList.remove('hidden');
     vipSection.classList.remove('hidden');
   }
 
@@ -191,7 +194,6 @@
     entrantInput.value = '';
     entrantPicker.classList.remove('hidden');
     entrantChip.classList.add('hidden');
-    document.getElementById('postEntrantNotices').classList.add('hidden');
     vipSection.classList.add('hidden');
     successSection.classList.add('hidden');
   });
@@ -459,6 +461,7 @@
 
   document.getElementById('addAnotherBtn').addEventListener('click', function () {
     resetVipForm();
+    document.getElementById('waitlistNotice').classList.remove('hidden');
     showOnly(vipSection);
   });
 
