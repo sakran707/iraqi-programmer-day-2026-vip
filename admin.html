@@ -50,6 +50,7 @@
 
     <div class="toolbar">
       <input type="text" id="searchInput" placeholder="ابحث بالاسم، مكان العمل، المنصب، رقم VIP، أو اسم المُدخل">
+      <button type="button" id="exportBtn" class="btn btn-outline btn-sm">⬇ تصدير البيانات</button>
       <button type="button" id="refreshBtn" class="btn btn-outline btn-sm">تحديث</button>
     </div>
 
@@ -134,6 +135,45 @@
     q = normalize(q);
     return [row.full_name, row.workplace, row.position, row.vip_code, row.entered_by_name]
       .some(function (v) { return normalize(v).indexOf(q) !== -1; });
+  }
+
+  function formatDateForExport(iso) {
+    if (!iso) return '';
+    return String(iso).replace('T', ' ').replace(/\.\d+Z?$/, '').slice(0, 16);
+  }
+
+  function csvField(v) {
+    var s = v == null ? '' : String(v);
+    if (/[",\n\r]/.test(s)) s = '"' + s.replace(/"/g, '""') + '"';
+    return s;
+  }
+
+  function exportCsv() {
+    var rows = allRows.filter(function (r) { return matches(r, document.getElementById('searchInput').value); });
+    var headers = [
+      'رقم VIP', 'اسم الشخصية', 'مكان العمل', 'المنصب', 'طريقة التواصل',
+      'أضيفت بواسطة', 'منصب المُدخل', 'الأولوية', 'الحالة', 'تاريخ التسجيل', 'وقت الحضور'
+    ];
+    var lines = [headers.map(csvField).join(',')];
+    rows.forEach(function (r) {
+      lines.push([
+        r.vip_code, r.full_name, r.workplace, r.position || '—', r.contact_method || '—',
+        r.entered_by_name, r.entered_by_position, r.priority || 'عادية', r.status,
+        formatDateForExport(r.created_at), formatDateForExport(r.attendance_time)
+      ].map(csvField).join(','));
+    });
+
+    var csv = '﻿' + lines.join('\r\n');
+    var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    var today = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = 'programmer-day-2026-vip-list-' + today + '.csv';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
   }
 
   var PRIORITIES = ['عالية', 'متوسطة', 'عادية'];
@@ -267,6 +307,7 @@
     renderTable(e.target.value);
   });
   document.getElementById('refreshBtn').addEventListener('click', function () { loadList(); });
+  document.getElementById('exportBtn').addEventListener('click', exportCsv);
 
   document.getElementById('gateBtn').addEventListener('click', function () {
     adminPassword = document.getElementById('pwInput').value;
