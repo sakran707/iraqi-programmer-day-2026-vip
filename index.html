@@ -7,7 +7,7 @@
 <title>يوم المبرمج العراقي 2026 – تسجيل الشخصيات VIP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/shared.css">
 </head>
 <body>
@@ -292,14 +292,14 @@
       ctx.direction = 'rtl';
       ctx.textAlign = 'center';
       ctx.fillStyle = '#C9A227';
-      ctx.font = '700 14px Cairo, sans-serif';
+      ctx.font = "700 14px 'IBM Plex Sans Arabic', sans-serif";
       ctx.fillText('نقابة المبرمجين العراقيين', cx, cy + r + 24);
 
       ctx.fillStyle = '#0B2A43';
-      ctx.font = '800 22px Cairo, sans-serif';
+      ctx.font = "800 22px 'IBM Plex Sans Arabic', sans-serif";
       ctx.fillText('يوم المبرمج العراقي 2026', cx, headerH + 8 + 38);
       ctx.fillStyle = '#64748B';
-      ctx.font = '600 13px Cairo, sans-serif';
+      ctx.font = "600 13px 'IBM Plex Sans Arabic', sans-serif";
       ctx.fillText('9–10 تشرين الأول 2026', cx, headerH + 8 + 60);
 
       var pillW = 140, pillH = 30, pillY = headerH + 8 + 78;
@@ -307,15 +307,15 @@
       ctx.fillStyle = '#F7EFD6';
       ctx.fill();
       ctx.fillStyle = '#0B2A43';
-      ctx.font = '800 14px Cairo, sans-serif';
+      ctx.font = "800 14px 'IBM Plex Sans Arabic', sans-serif";
       ctx.fillText('بطاقة شخصية VIP', cx, pillY + 20);
 
       ctx.fillStyle = '#16232E';
-      ctx.font = '800 23px Cairo, sans-serif';
+      ctx.font = "800 23px 'IBM Plex Sans Arabic', sans-serif";
       var y = wrapCenteredText(ctx, data.name, cx, pillY + pillH + 38, W - 70, 29);
 
       ctx.fillStyle = '#64748B';
-      ctx.font = '600 14px Cairo, sans-serif';
+      ctx.font = "600 14px 'IBM Plex Sans Arabic', sans-serif";
       var meta = data.workplace + (data.position ? ' — ' + data.position : '');
       y = wrapCenteredText(ctx, meta, cx, y + 26, W - 70, 20);
 
@@ -329,13 +329,13 @@
       ctx.drawImage(qrImg, cx - qrSize / 2, qrY, qrSize, qrSize);
 
       ctx.fillStyle = '#0B2A43';
-      ctx.font = '800 18px Cairo, sans-serif';
+      ctx.font = "800 18px 'IBM Plex Mono', monospace";
       ctx.direction = 'ltr';
       ctx.fillText(data.code, cx, qrY + qrSize + 34);
       ctx.direction = 'rtl';
 
       ctx.fillStyle = '#9AA7B2';
-      ctx.font = '600 11px Cairo, sans-serif';
+      ctx.font = "600 11px 'IBM Plex Sans Arabic', sans-serif";
       ctx.fillText('الأماكن المخصصة: الصف الثاني والثالث — قاعة الملتقى VIP', cx, H - 22);
 
       ctx.restore();
