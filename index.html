@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>يوم المبرمج العراقي 2026 – تسجيل الشخصيات VIP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/shared.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="eyebrow">نقابة المبرمجين العراقيين</div>
+  <h1>يوم المبرمج العراقي 2026<br>سجل الشخصيات VIP</h1>
+  <div class="rule"><span></span><span></span></div>
+  <p>9–10 تشرين الأول 2026</p>
+</header>
+
+<main>
+
+  <div class="notice">
+    <b>تنويه:</b>
+    الأماكن المتاحة للشخصيات VIP هي الصف الثاني والثالث من قاعة الملتقى VIP.
+  </div>
+
+  <!-- Step 1: entrant identification -->
+  <section id="entrantSection" class="card">
+    <h2>بيانات مُدخل الاستمارة</h2>
+
+    <div id="entrantPicker">
+      <div class="field">
+        <label for="entrantInput">اختر اسمك / ابدأ بكتابة اسمك</label>
+        <input type="text" id="entrantInput" autocomplete="off" placeholder="اكتب اسمك...">
+        <div id="suggestions" class="suggestions hidden"></div>
+      </div>
+    </div>
+
+    <div id="entrantChip" class="entrant-chip hidden">
+      <div class="who">
+        <div class="name" id="entrantName"></div>
+        <div class="pos" id="entrantPosition"></div>
+      </div>
+      <button type="button" id="changeEntrantBtn">تغيير</button>
+    </div>
+  </section>
+
+  <!-- Step 2: VIP data -->
+  <section id="vipSection" class="card hidden">
+    <h2>بيانات الشخصية VIP</h2>
+    <div class="stack">
+      <div class="field">
+        <label for="vipName">اسم الشخصية VIP</label>
+        <input type="text" id="vipName" placeholder="الاسم الكامل">
+      </div>
+      <div class="field">
+        <label for="vipWorkplace">مكان العمل / المؤسسة</label>
+        <input type="text" id="vipWorkplace" placeholder="مكان العمل أو المؤسسة">
+      </div>
+      <div class="field">
+        <label for="vipPosition">المنصب <span class="opt">(اختياري)</span></label>
+        <input type="text" id="vipPosition" placeholder="المنصب">
+      </div>
+      <div class="field">
+        <label for="vipContact">طريقة التواصل <span class="opt">(اختياري)</span></label>
+        <input type="text" id="vipContact" placeholder="رقم هاتف / واتساب / بريد إلكتروني">
+      </div>
+      <div id="vipError" class="muted hidden" style="color:var(--fail)"></div>
+      <button type="button" id="addVipBtn" class="btn btn-primary">إضافة الشخصية</button>
+    </div>
+  </section>
+
+  <!-- Success after one VIP -->
+  <section id="successSection" class="card hidden">
+    <div class="success-box">
+      <div class="check">✓</div>
+      <div style="font-weight:800">تمت إضافة الشخصية VIP بنجاح</div>
+      <div class="code num" id="successCode"></div>
+      <div class="qr-wrap"><img id="successQr" alt="QR Code"></div>
+      <div class="stack" style="margin-top:6px">
+        <button type="button" id="addAnotherBtn" class="btn btn-outline">+ إضافة شخصية أخرى</button>
+        <button type="button" id="finishBtn" class="btn btn-primary">إنهاء</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Summary before final confirm -->
+  <section id="summarySection" class="card hidden">
+    <h2>تم تسجيل الشخصيات التالية</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>الشخصية</th><th>مكان العمل</th><th>المنصب</th></tr>
+        </thead>
+        <tbody id="summaryRows"></tbody>
+      </table>
+    </div>
+    <div style="margin-top:14px" class="muted">
+      أضيفت بواسطة: <b id="summaryEnteredBy"></b><br>
+      المنصب: <b id="summaryEnteredByPosition"></b>
+    </div>
+    <button type="button" id="confirmFinishBtn" class="btn btn-primary" style="margin-top:16px">تأكيد وإنهاء</button>
+  </section>
+
+  <!-- Thank you -->
+  <section id="thankYouSection" class="card hidden">
+    <div class="success-box">
+      <div class="check">✓</div>
+      <div style="font-weight:800">تم إنهاء الجلسة بنجاح، شكراً لك.</div>
+      <button type="button" id="restartBtn" class="btn btn-outline" style="margin-top:16px">تسجيل شخصية جديدة</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">يوم المبرمج العراقي 2026 — نقابة المبرمجين العراقيين</footer>
+
+<script src="assets/config.js"></script>
+<script src="assets/members.js"></script>
+<script>
+(function () {
+  var selectedEntrant = null;
+  var sessionVips = [];
+
+  var entrantInput = document.getElementById('entrantInput');
+  var suggestions = document.getElementById('suggestions');
+  var entrantPicker = document.getElementById('entrantPicker');
+  var entrantChip = document.getElementById('entrantChip');
+  var entrantName = document.getElementById('entrantName');
+  var entrantPosition = document.getElementById('entrantPosition');
+  var changeEntrantBtn = document.getElementById('changeEntrantBtn');
+  var vipSection = document.getElementById('vipSection');
+  var successSection = document.getElementById('successSection');
+  var summarySection = document.getElementById('summarySection');
+  var thankYouSection = document.getElementById('thankYouSection');
+  var vipError = document.getElementById('vipError');
+  var addVipBtn = document.getElementById('addVipBtn');
+
+  function renderSuggestions(matches) {
+    if (matches.length === 0) {
+      suggestions.innerHTML = '<div class="empty">لا توجد نتائج مطابقة</div>';
+    } else {
+      suggestions.innerHTML = matches.map(function (m) {
+        return '<div class="item" data-name="' + m.name.replace(/"/g, '&quot;') + '">' +
+          m.name + '<span class="pos">' + m.position + '</span></div>';
+      }).join('');
+    }
+    suggestions.classList.remove('hidden');
+  }
+
+  entrantInput.addEventListener('input', function () {
+    var q = entrantInput.value;
+    if (q.trim().length < 2) { suggestions.classList.add('hidden'); return; }
+    renderSuggestions(findMemberMatches(q, 8));
+  });
+
+  suggestions.addEventListener('click', function (e) {
+    var item = e.target.closest('.item[data-name]');
+    if (!item) return;
+    var name = item.getAttribute('data-name');
+    var member = MEMBERS.filter(function (m) { return m.name === name; })[0];
+    if (!member) return;
+    selectEntrant(member);
+  });
+
+  function selectEntrant(member) {
+    selectedEntrant = member;
+    entrantName.textContent = member.name;
+    entrantPosition.textContent = member.position;
+    entrantPicker.classList.add('hidden');
+    entrantChip.classList.remove('hidden');
+    suggestions.classList.add('hidden');
+    vipSection.classList.remove('hidden');
+  }
+
+  changeEntrantBtn.addEventListener('click', function () {
+    selectedEntrant = null;
+    entrantInput.value = '';
+    entrantPicker.classList.remove('hidden');
+    entrantChip.classList.add('hidden');
+    vipSection.classList.add('hidden');
+    successSection.classList.add('hidden');
+  });
+
+  function verifyUrlFor(code) {
+    var base = location.href.replace(/index\.html.*$/, '').replace(/\?.*$/, '');
+    return base + 'verify.html?id=' + encodeURIComponent(code);
+  }
+
+  function qrUrlFor(targetUrl) {
+    return 'https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=' + encodeURIComponent(targetUrl);
+  }
+
+  function resetVipForm() {
+    document.getElementById('vipName').value = '';
+    document.getElementById('vipWorkplace').value = '';
+    document.getElementById('vipPosition').value = '';
+    document.getElementById('vipContact').value = '';
+    vipError.classList.add('hidden');
+  }
+
+  function showOnly(sectionEl) {
+    [vipSection, successSection, summarySection, thankYouSection].forEach(function (s) {
+      s.classList.add('hidden');
+    });
+    if (sectionEl) sectionEl.classList.remove('hidden');
+  }
+
+  addVipBtn.addEventListener('click', function () {
+    if (!selectedEntrant) return;
+    var fullName = document.getElementById('vipName').value.trim();
+    var workplace = document.getElementById('vipWorkplace').value.trim();
+    var position = document.getElementById('vipPosition').value.trim();
+    var contact = document.getElementById('vipContact').value.trim();
+
+    if (!fullName || !workplace) {
+      vipError.textContent = 'الرجاء إدخال اسم الشخصية ومكان العمل (حقلان إجباريان).';
+      vipError.classList.remove('hidden');
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PASTE_') === 0) {
+      vipError.textContent = 'لم يتم ربط النظام بقاعدة البيانات بعد (راجع إعداد Apps Script).';
+      vipError.classList.remove('hidden');
+      return;
+    }
+
+    vipError.classList.add('hidden');
+    addVipBtn.disabled = true;
+    addVipBtn.textContent = 'جارٍ الإضافة...';
+
+    fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'addVip',
+        full_name: fullName,
+        workplace: workplace,
+        position: position,
+        contact_method: contact,
+        entered_by_name: selectedEntrant.name,
+        entered_by_position: selectedEntrant.position
+      })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      addVipBtn.disabled = false;
+      addVipBtn.textContent = 'إضافة الشخصية';
+      if (!res.ok) {
+        vipError.textContent = 'تعذر حفظ البيانات، حاول مرة أخرى.';
+        vipError.classList.remove('hidden');
+        return;
+      }
+      sessionVips.push({
+        full_name: fullName, workplace: workplace, position: position, vip_code: res.vip_code
+      });
+      var verifyUrl = verifyUrlFor(res.vip_code);
+      document.getElementById('successCode').textContent = res.vip_code;
+      document.getElementById('successQr').src = qrUrlFor(verifyUrl);
+      showOnly(successSection);
+    }).catch(function () {
+      addVipBtn.disabled = false;
+      addVipBtn.textContent = 'إضافة الشخصية';
+      vipError.textContent = 'تعذر الاتصال بالخادم، تحقق من الإنترنت وحاول مرة أخرى.';
+      vipError.classList.remove('hidden');
+    });
+  });
+
+  document.getElementById('addAnotherBtn').addEventListener('click', function () {
+    resetVipForm();
+    showOnly(vipSection);
+  });
+
+  document.getElementById('finishBtn').addEventListener('click', function () {
+    document.getElementById('summaryRows').innerHTML = sessionVips.map(function (v) {
+      return '<tr><td>' + v.full_name + '</td><td>' + v.workplace + '</td><td>' + (v.position || '—') + '</td></tr>';
+    }).join('');
+    document.getElementById('summaryEnteredBy').textContent = selectedEntrant.name;
+    document.getElementById('summaryEnteredByPosition').textContent = selectedEntrant.position;
+    showOnly(summarySection);
+  });
+
+  document.getElementById('confirmFinishBtn').addEventListener('click', function () {
+    showOnly(thankYouSection);
+  });
+
+  document.getElementById('restartBtn').addEventListener('click', function () {
+    location.reload();
+  });
+})();
+</script>
+</body>
+</html>

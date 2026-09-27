@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>التحقق من شخصية VIP – يوم المبرمج العراقي 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/shared.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="eyebrow">نقابة المبرمجين العراقيين</div>
+  <h1>التحقق من شخصية VIP</h1>
+  <div class="rule"><span></span><span></span></div>
+  <p>يوم المبرمج العراقي 2026 — 9–10 تشرين الأول</p>
+</header>
+
+<main>
+  <div class="card">
+    <h2>أدخل رقم التسجيل</h2>
+    <div class="field">
+      <label for="codeInput">رقم VIP</label>
+      <input type="text" id="codeInput" placeholder="VIP-2026-0001">
+    </div>
+    <button type="button" id="checkBtn" class="btn btn-primary">تحقق</button>
+  </div>
+
+  <div id="result" class="result-box card"></div>
+</main>
+
+<footer class="site">يوم المبرمج العراقي 2026 — نقابة المبرمجين العراقيين</footer>
+
+<script src="assets/config.js"></script>
+<script>
+(function () {
+  var codeInput = document.getElementById('codeInput');
+  var result = document.getElementById('result');
+  var btn = document.getElementById('checkBtn');
+
+  function render(type, icon, title, name, details) {
+    result.className = 'result-box card show ' + type;
+    var detailsHtml = (details && details.length)
+      ? '<div class="details">' + details.map(function (d) { return '<div>' + d + '</div>'; }).join('') + '</div>'
+      : '';
+    result.innerHTML =
+      '<span class="icon">' + icon + '</span>' +
+      (name ? '<div class="name">' + name + '</div>' : '') +
+      '<div class="title">' + title + '</div>' +
+      detailsHtml;
+  }
+
+  function doCheck() {
+    var code = codeInput.value.trim();
+    if (!code) return;
+    btn.disabled = true;
+    btn.textContent = 'جارٍ التحقق...';
+
+    var url = APPS_SCRIPT_URL + '?action=verify&code=' + encodeURIComponent(code);
+    fetch(url).then(function (r) { return r.json(); }).then(function (res) {
+      btn.disabled = false;
+      btn.textContent = 'تحقق';
+      if (res.found) {
+        var details = [];
+        details.push('مكان العمل: ' + res.workplace);
+        if (res.position) details.push('المنصب: ' + res.position);
+        render('v-pass', '✓', 'شخصية VIP', res.full_name, details);
+      } else {
+        render('v-fail', '✕', 'رقم غير صحيح أو غير مسجل');
+      }
+    }).catch(function () {
+      btn.disabled = false;
+      btn.textContent = 'تحقق';
+      render('v-fail', '⚠', 'تعذر الاتصال بالخادم، حاول مرة أخرى');
+    });
+  }
+
+  btn.addEventListener('click', doCheck);
+  codeInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') doCheck(); });
+
+  var params = new URLSearchParams(location.search);
+  var prefill = params.get('id') || params.get('code');
+  if (prefill) { codeInput.value = prefill; doCheck(); }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>لوحة الإدارة – يوم المبرمج العراقي 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/shared.css">
+<style>
+  main.admin{max-width:960px}
+  .toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+  .toolbar input{flex:1;min-width:180px}
+  .status-select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);font-family:inherit;font-size:.82rem}
+  .actions-cell{display:flex;gap:6px}
+  .detail-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:.9rem}
+  .detail-row b{color:var(--navy)}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="eyebrow">نقابة المبرمجين العراقيين</div>
+  <h1>لوحة إدارة الشخصيات VIP</h1>
+  <div class="rule"><span></span><span></span></div>
+  <p>يوم المبرمج العراقي 2026</p>
+</header>
+
+<main class="admin" id="mainArea">
+
+  <section id="gate" class="card" style="max-width:420px;margin:0 auto">
+    <h2>دخول الإدارة</h2>
+    <div class="field">
+      <label for="pwInput">كلمة مرور الإدارة</label>
+      <input type="password" id="pwInput" placeholder="••••••••">
+    </div>
+    <div id="gateError" class="muted hidden" style="color:var(--fail);margin-bottom:10px"></div>
+    <button type="button" id="gateBtn" class="btn btn-primary">دخول</button>
+  </section>
+
+  <section id="dashboard" class="hidden">
+    <div class="stats-grid">
+      <div class="stat-tile"><div class="n num" id="statTotal">0</div><div class="l">إجمالي الشخصيات VIP</div></div>
+      <div class="stat-tile"><div class="n num" id="statConfirmed">0</div><div class="l">تم التأكيد</div></div>
+      <div class="stat-tile"><div class="n num" id="statAttended">0</div><div class="l">حضر</div></div>
+      <div class="stat-tile"><div class="n num" id="statAbsent">0</div><div class="l">لم يحضر</div></div>
+    </div>
+
+    <div class="toolbar">
+      <input type="text" id="searchInput" placeholder="ابحث بالاسم، مكان العمل، المنصب، رقم VIP، أو اسم المُدخل">
+      <button type="button" id="refreshBtn" class="btn btn-outline btn-sm">تحديث</button>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>رقم VIP</th><th>اسم الشخصية</th><th>مكان العمل</th><th>المنصب</th>
+            <th>أضيفت بواسطة</th><th>الحالة</th><th>إجراءات</th>
+          </tr>
+        </thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">يوم المبرمج العراقي 2026 — لوحة إدارية، هذه البيانات غير عامة</footer>
+
+<div id="modalHost"></div>
+
+<script src="assets/config.js"></script>
+<script>
+(function () {
+  var STATUSES = ['مدعو', 'تم التأكيد', 'حضر', 'لم يحضر'];
+  var STATUS_CLASS = { 'مدعو': 'invited', 'تم التأكيد': 'confirmed', 'حضر': 'attended', 'لم يحضر': 'absent' };
+  var allRows = [];
+  var adminPassword = '';
+
+  var gate = document.getElementById('gate');
+  var dashboard = document.getElementById('dashboard');
+  var gateError = document.getElementById('gateError');
+  var modalHost = document.getElementById('modalHost');
+
+  function normalize(s) {
+    return String(s || '')
+      .replace(/[ً-ْٰـ]/g, '').replace(/[إأآا]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+      .replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  function apiPost(payload) {
+    return fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); });
+  }
+
+  function loadList(onDone) {
+    apiPost({ action: 'adminList', password: adminPassword }).then(function (res) {
+      if (res.error === 'unauthorized') {
+        sessionStorage.removeItem('vip_admin_pw');
+        gateError.textContent = 'كلمة المرور غير صحيحة.';
+        gateError.classList.remove('hidden');
+        dashboard.classList.add('hidden');
+        gate.classList.remove('hidden');
+        return;
+      }
+      allRows = res.rows || [];
+      gate.classList.add('hidden');
+      dashboard.classList.remove('hidden');
+      renderStats();
+      renderTable(document.getElementById('searchInput').value);
+      if (onDone) onDone();
+    }).catch(function () {
+      gateError.textContent = 'تعذر الاتصال بالخادم.';
+      gateError.classList.remove('hidden');
+    });
+  }
+
+  function renderStats() {
+    document.getElementById('statTotal').textContent = allRows.length;
+    document.getElementById('statConfirmed').textContent = allRows.filter(function (r) { return r.status === 'تم التأكيد'; }).length;
+    document.getElementById('statAttended').textContent = allRows.filter(function (r) { return r.status === 'حضر'; }).length;
+    document.getElementById('statAbsent').textContent = allRows.filter(function (r) { return r.status === 'لم يحضر'; }).length;
+  }
+
+  function matches(row, q) {
+    if (!q) return true;
+    q = normalize(q);
+    return [row.full_name, row.workplace, row.position, row.vip_code, row.entered_by_name]
+      .some(function (v) { return normalize(v).indexOf(q) !== -1; });
+  }
+
+  function statusOptionsHtml(current) {
+    return STATUSES.map(function (s) {
+      return '<option value="' + s + '"' + (s === current ? ' selected' : '') + '>' + s + '</option>';
+    }).join('');
+  }
+
+  function renderTable(query) {
+    var rows = allRows.filter(function (r) { return matches(r, query); });
+    document.getElementById('rows').innerHTML = rows.map(function (r) {
+      return '<tr data-code="' + r.vip_code + '">' +
+        '<td class="num">' + r.vip_code + '</td>' +
+        '<td>' + r.full_name + '</td>' +
+        '<td>' + r.workplace + '</td>' +
+        '<td>' + (r.position || '—') + '</td>' +
+        '<td>' + r.entered_by_name + '</td>' +
+        '<td><select class="status-select" data-code="' + r.vip_code + '">' + statusOptionsHtml(r.status) + '</select></td>' +
+        '<td class="actions-cell">' +
+          '<button class="btn btn-outline btn-sm" data-action="detail" data-code="' + r.vip_code + '">تفاصيل</button>' +
+          '<button class="btn btn-outline btn-sm" data-action="edit" data-code="' + r.vip_code + '">تعديل</button>' +
+          '<button class="btn btn-danger-outline btn-sm" data-action="delete" data-code="' + r.vip_code + '">حذف</button>' +
+        '</td>' +
+      '</tr>';
+    }).join('');
+  }
+
+  function findRow(code) {
+    return allRows.filter(function (r) { return r.vip_code === code; })[0];
+  }
+
+  function closeModal() { modalHost.innerHTML = ''; }
+
+  function openDetail(code) {
+    var r = findRow(code);
+    if (!r) return;
+    var verifyUrl = location.href.replace(/admin\.html.*$/, '') + 'verify.html?id=' + encodeURIComponent(code);
+    var qr = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(verifyUrl);
+    modalHost.innerHTML =
+      '<div class="modal-backdrop" id="backdrop"><div class="modal">' +
+      '<h3>تفاصيل الشخصية VIP</h3>' +
+      '<div class="detail-row"><span>رقم VIP</span><b class="num">' + r.vip_code + '</b></div>' +
+      '<div class="detail-row"><span>الاسم</span><b>' + r.full_name + '</b></div>' +
+      '<div class="detail-row"><span>مكان العمل</span><b>' + r.workplace + '</b></div>' +
+      '<div class="detail-row"><span>المنصب</span><b>' + (r.position || '—') + '</b></div>' +
+      '<div class="detail-row"><span>طريقة التواصل</span><b>' + (r.contact_method || '—') + '</b></div>' +
+      '<div class="detail-row"><span>أضيفت بواسطة</span><b>' + r.entered_by_name + '</b></div>' +
+      '<div class="detail-row"><span>منصب المُدخل</span><b>' + r.entered_by_position + '</b></div>' +
+      '<div class="detail-row"><span>الحالة</span><b>' + r.status + '</b></div>' +
+      '<div class="detail-row"><span>وقت الحضور</span><b>' + (r.attendance_time || '—') + '</b></div>' +
+      '<div class="qr-wrap" style="margin:16px auto"><img src="' + qr + '" alt="QR"></div>' +
+      '<button type="button" class="btn btn-outline" id="closeDetailBtn">إغلاق</button>' +
+      '</div></div>';
+    document.getElementById('closeDetailBtn').addEventListener('click', closeModal);
+    document.getElementById('backdrop').addEventListener('click', function (e) { if (e.target.id === 'backdrop') closeModal(); });
+  }
+
+  function openEdit(code) {
+    var r = findRow(code);
+    if (!r) return;
+    modalHost.innerHTML =
+      '<div class="modal-backdrop" id="backdrop"><div class="modal">' +
+      '<h3>تعديل بيانات الشخصية</h3>' +
+      '<div class="stack">' +
+      '<div class="field"><label>اسم الشخصية</label><input type="text" id="editName" value="' + r.full_name.replace(/"/g, '&quot;') + '"></div>' +
+      '<div class="field"><label>مكان العمل</label><input type="text" id="editWorkplace" value="' + r.workplace.replace(/"/g, '&quot;') + '"></div>' +
+      '<div class="field"><label>المنصب</label><input type="text" id="editPosition" value="' + (r.position || '').replace(/"/g, '&quot;') + '"></div>' +
+      '<div class="field"><label>طريقة التواصل</label><input type="text" id="editContact" value="' + (r.contact_method || '').replace(/"/g, '&quot;') + '"></div>' +
+      '<div id="editError" class="muted hidden" style="color:var(--fail)"></div>' +
+      '<div class="row-2">' +
+      '<button type="button" class="btn btn-outline" id="cancelEditBtn">إلغاء</button>' +
+      '<button type="button" class="btn btn-primary" id="saveEditBtn">حفظ</button>' +
+      '</div></div></div></div>';
+    document.getElementById('cancelEditBtn').addEventListener('click', closeModal);
+    document.getElementById('saveEditBtn').addEventListener('click', function () {
+      var payload = {
+        action: 'adminUpdateVip', password: adminPassword, vip_code: code,
+        full_name: document.getElementById('editName').value.trim(),
+        workplace: document.getElementById('editWorkplace').value.trim(),
+        position: document.getElementById('editPosition').value.trim(),
+        contact_method: document.getElementById('editContact').value.trim()
+      };
+      if (!payload.full_name || !payload.workplace) {
+        var err = document.getElementById('editError');
+        err.textContent = 'اسم الشخصية ومكان العمل إجباريان.';
+        err.classList.remove('hidden');
+        return;
+      }
+      apiPost(payload).then(function (res) {
+        if (res.ok) { closeModal(); loadList(); }
+      });
+    });
+  }
+
+  document.getElementById('rows').addEventListener('click', function (e) {
+    var btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    var code = btn.getAttribute('data-code');
+    var action = btn.getAttribute('data-action');
+    if (action === 'detail') openDetail(code);
+    else if (action === 'edit') openEdit(code);
+    else if (action === 'delete') {
+      if (!confirm('هل أنت متأكد من حذف هذه الشخصية؟ لا يمكن التراجع.')) return;
+      apiPost({ action: 'adminDeleteVip', password: adminPassword, vip_code: code }).then(function (res) {
+        if (res.ok) loadList();
+      });
+    }
+  });
+
+  document.getElementById('rows').addEventListener('change', function (e) {
+    var sel = e.target.closest('.status-select');
+    if (!sel) return;
+    var code = sel.getAttribute('data-code');
+    apiPost({ action: 'adminUpdateStatus', password: adminPassword, vip_code: code, status: sel.value }).then(function (res) {
+      if (res.ok) {
+        var row = findRow(code);
+        if (row) row.status = sel.value;
+        renderStats();
+      }
+    });
+  });
+
+  document.getElementById('searchInput').addEventListener('input', function (e) {
+    renderTable(e.target.value);
+  });
+  document.getElementById('refreshBtn').addEventListener('click', function () { loadList(); });
+
+  document.getElementById('gateBtn').addEventListener('click', function () {
+    adminPassword = document.getElementById('pwInput').value;
+    gateError.classList.add('hidden');
+    loadList(function () { sessionStorage.setItem('vip_admin_pw', adminPassword); });
+  });
+  document.getElementById('pwInput').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('gateBtn').click();
+  });
+
+  var savedPw = sessionStorage.getItem('vip_admin_pw');
+  if (savedPw) { adminPassword = savedPw; loadList(); }
+})();
+</script>
+</body>
+</html>
