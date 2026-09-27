@@ -43,14 +43,16 @@
     </div>
   </section>
 
-  <div class="notice notice-restrict">
-    <b>تنويه:</b>
-    هذا الرابط خاص بأعضاء مجلس نقابة المبرمجين العراقيين واللجان المحددة حصراً. يُرجى عدم مشاركته أو نشره.
-  </div>
+  <div id="postEntrantNotices" class="hidden">
+    <div class="notice notice-restrict">
+      <b>تنويه:</b>
+      هذا الرابط خاص بأعضاء مجلس نقابة المبرمجين العراقيين واللجان المحددة حصراً. يُرجى عدم مشاركته أو نشره.
+    </div>
 
-  <div class="notice">
-    <b>تنويه:</b>
-    الأماكن المتاحة للشخصيات VIP هي الصف الثاني والثالث من قاعة الملتقى VIP.
+    <div class="notice">
+      <b>تنويه:</b>
+      الأماكن المتاحة للشخصيات VIP هي الصف الثاني والثالث من قاعة الملتقى VIP.
+    </div>
   </div>
 
   <!-- Step 2: VIP data -->
@@ -180,6 +182,7 @@
     entrantPicker.classList.add('hidden');
     entrantChip.classList.remove('hidden');
     suggestions.classList.add('hidden');
+    document.getElementById('postEntrantNotices').classList.remove('hidden');
     vipSection.classList.remove('hidden');
   }
 
@@ -188,6 +191,7 @@
     entrantInput.value = '';
     entrantPicker.classList.remove('hidden');
     entrantChip.classList.add('hidden');
+    document.getElementById('postEntrantNotices').classList.add('hidden');
     vipSection.classList.add('hidden');
     successSection.classList.add('hidden');
   });
