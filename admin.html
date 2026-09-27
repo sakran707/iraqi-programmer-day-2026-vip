@@ -28,6 +28,7 @@
   #printReport th,#printReport td{border:1px solid #ccc;padding:6px 8px;text-align:right}
   #printReport th{background:#EEF1F4;color:var(--navy)}
   #printReport .p-footer{margin-top:16px;font-size:.75rem;color:var(--muted)}
+  #printReport .p-subhead{font-size:1rem;color:var(--navy);margin:22px 0 8px}
 
   @media print{
     body.printing > *:not(#printReport){display:none !important}
@@ -64,6 +65,16 @@
       <div class="stat-tile"><div class="n num" id="statConfirmed">0</div><div class="l">تم التأكيد</div></div>
       <div class="stat-tile"><div class="n num" id="statAttended">0</div><div class="l">حضر</div></div>
       <div class="stat-tile"><div class="n num" id="statAbsent">0</div><div class="l">لم يحضر</div></div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h2>عدد الشخصيات المضافة حسب كل عضو</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>اسم العضو</th><th>المنصب</th><th>عدد الشخصيات المضافة</th></tr></thead>
+          <tbody id="entrantBreakdownRows"></tbody>
+        </table>
+      </div>
     </div>
 
     <div class="toolbar">
@@ -149,6 +160,25 @@
     document.getElementById('statConfirmed').textContent = allRows.filter(function (r) { return r.status === 'تم التأكيد'; }).length;
     document.getElementById('statAttended').textContent = allRows.filter(function (r) { return r.status === 'حضر'; }).length;
     document.getElementById('statAbsent').textContent = allRows.filter(function (r) { return r.status === 'لم يحضر'; }).length;
+    renderEntrantBreakdown();
+  }
+
+  /** يحسب عدد الشخصيات VIP اللي أضافها كل عضو، من إجمالي البيانات (بدون تأثير البحث) */
+  function computeEntrantBreakdown() {
+    var map = {};
+    allRows.forEach(function (r) {
+      var key = r.entered_by_name;
+      if (!map[key]) map[key] = { name: r.entered_by_name, position: r.entered_by_position, count: 0 };
+      map[key].count++;
+    });
+    return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.count - a.count; });
+  }
+
+  function renderEntrantBreakdown() {
+    var breakdown = computeEntrantBreakdown();
+    document.getElementById('entrantBreakdownRows').innerHTML = breakdown.map(function (b) {
+      return '<tr><td>' + b.name + '</td><td>' + b.position + '</td><td class="num">' + b.count + '</td></tr>';
+    }).join('');
   }
 
   function matches(row, q) {
@@ -184,6 +214,13 @@
       ].map(csvField).join(','));
     });
 
+    lines.push('');
+    lines.push(csvField('عدد الشخصيات المضافة حسب كل عضو'));
+    lines.push(['اسم العضو', 'المنصب', 'عدد الشخصيات المضافة'].map(csvField).join(','));
+    computeEntrantBreakdown().forEach(function (b) {
+      lines.push([b.name, b.position, b.count].map(csvField).join(','));
+    });
+
     var csv = '﻿' + lines.join('\r\n');
     var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     var url = URL.createObjectURL(blob);
@@ -215,6 +252,10 @@
       '</tr>';
     }).join('');
 
+    var breakdownRowsHtml = computeEntrantBreakdown().map(function (b) {
+      return '<tr><td>' + b.name + '</td><td>' + b.position + '</td><td>' + b.count + '</td></tr>';
+    }).join('');
+
     document.getElementById('printReport').innerHTML =
       '<div class="p-head">' +
         '<img src="assets/union-logo.webp" alt="">' +
@@ -234,6 +275,11 @@
       '<table>' +
         '<thead><tr><th>رقم VIP</th><th>الاسم</th><th>مكان العمل</th><th>المنصب</th><th>أضيفت بواسطة</th><th>الأولوية</th><th>الحالة</th></tr></thead>' +
         '<tbody>' + rowsHtml + '</tbody>' +
+      '</table>' +
+      '<h2 class="p-subhead">عدد الشخصيات المضافة حسب كل عضو</h2>' +
+      '<table>' +
+        '<thead><tr><th>اسم العضو</th><th>المنصب</th><th>عدد الشخصيات المضافة</th></tr></thead>' +
+        '<tbody>' + breakdownRowsHtml + '</tbody>' +
       '</table>' +
       '<div class="p-footer">عدد الشخصيات بالتقرير: ' + rows.length + ' — وثيقة إدارية، غير مخصصة للنشر العام</div>';
 
