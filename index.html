@@ -417,7 +417,13 @@
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
       body: JSON.stringify({ action: 'checkVip', name: name })
     }).then(function (r) { return r.json(); }).then(function (res) {
-      return (res.ok && res.matches) ? res.matches : [];
+      // مهم: نفرّق بين "تم التحقق فعلياً ولا توجد نتيجة" وبين فشل التحقق نفسه
+      // (خطأ من الخادم، نسخة قديمة غير محدّثة من Apps Script...) - لا يصح اعتبار
+      // فشل التحقق على أنه تأكيد بعدم وجود تكرار.
+      if (!res || res.ok !== true) {
+        throw new Error('checkVip failed: ' + (res && res.error));
+      }
+      return res.matches || [];
     });
   }
 
