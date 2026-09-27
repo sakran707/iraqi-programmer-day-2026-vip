@@ -13,7 +13,6 @@
   main.admin{max-width:960px}
   .toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
   .toolbar input{flex:1;min-width:180px}
-  .status-select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);font-family:inherit;font-size:.82rem}
   .actions-cell{display:flex;gap:6px}
   .detail-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:.9rem}
   .detail-row b{color:var(--navy)}
@@ -74,6 +73,7 @@
 <div id="modalHost"></div>
 
 <script src="assets/config.js?v=3"></script>
+<script src="assets/listbox.js"></script>
 <script>
 (function () {
   var STATUSES = ['مدعو', 'تم التأكيد', 'حضر', 'لم يحضر'];
@@ -139,12 +139,6 @@
   var PRIORITIES = ['عالية', 'متوسطة', 'عادية'];
   var PRIORITY_CLASS = { 'عالية': 'attended', 'متوسطة': 'confirmed', 'عادية': 'invited' };
 
-  function statusOptionsHtml(current) {
-    return STATUSES.map(function (s) {
-      return '<option value="' + s + '"' + (s === current ? ' selected' : '') + '>' + s + '</option>';
-    }).join('');
-  }
-
   function priorityBadge(priority) {
     var p = priority || 'عادية';
     return '<span class="badge ' + (PRIORITY_CLASS[p] || 'invited') + '">' + p + '</span>';
@@ -160,7 +154,7 @@
         '<td>' + (r.position || '—') + '</td>' +
         '<td>' + r.entered_by_name + '</td>' +
         '<td>' + priorityBadge(r.priority) + '</td>' +
-        '<td><select class="status-select" data-code="' + r.vip_code + '">' + statusOptionsHtml(r.status) + '</select></td>' +
+        '<td class="status-cell" data-code="' + r.vip_code + '"></td>' +
         '<td class="actions-cell">' +
           '<button class="btn btn-outline btn-sm" data-action="detail" data-code="' + r.vip_code + '">تفاصيل</button>' +
           '<button class="btn btn-outline btn-sm" data-action="edit" data-code="' + r.vip_code + '">تعديل</button>' +
@@ -168,6 +162,16 @@
         '</td>' +
       '</tr>';
     }).join('');
+
+    rows.forEach(function (r) {
+      var cell = document.querySelector('.status-cell[data-code="' + r.vip_code + '"]');
+      if (!cell) return;
+      cell.appendChild(createListbox(STATUSES, r.status, function (newStatus) {
+        apiPost({ action: 'adminUpdateStatus', password: adminPassword, vip_code: r.vip_code, status: newStatus }).then(function (res) {
+          if (res.ok) { r.status = newStatus; renderStats(); }
+        });
+      }));
+    });
   }
 
   function findRow(code) {
@@ -212,14 +216,16 @@
       '<div class="field"><label>مكان العمل</label><input type="text" id="editWorkplace" value="' + r.workplace.replace(/"/g, '&quot;') + '"></div>' +
       '<div class="field"><label>المنصب</label><input type="text" id="editPosition" value="' + (r.position || '').replace(/"/g, '&quot;') + '"></div>' +
       '<div class="field"><label>طريقة التواصل</label><input type="text" id="editContact" value="' + (r.contact_method || '').replace(/"/g, '&quot;') + '"></div>' +
-      '<div class="field"><label>الأولوية</label><select id="editPriority">' +
-        PRIORITIES.map(function (p) { return '<option value="' + p + '"' + (p === (r.priority || 'عادية') ? ' selected' : '') + '>' + p + '</option>'; }).join('') +
-      '</select></div>' +
+      '<div class="field"><label>الأولوية</label><div id="editPriorityHost"></div></div>' +
       '<div id="editError" class="muted hidden" style="color:var(--fail)"></div>' +
       '<div class="row-2">' +
       '<button type="button" class="btn btn-outline" id="cancelEditBtn">إلغاء</button>' +
       '<button type="button" class="btn btn-primary" id="saveEditBtn">حفظ</button>' +
       '</div></div></div></div>';
+    var editPriorityValue = r.priority || 'عادية';
+    document.getElementById('editPriorityHost').appendChild(
+      createListbox(PRIORITIES, editPriorityValue, function (p) { editPriorityValue = p; })
+    );
     document.getElementById('cancelEditBtn').addEventListener('click', closeModal);
     document.getElementById('saveEditBtn').addEventListener('click', function () {
       var payload = {
@@ -228,7 +234,7 @@
         workplace: document.getElementById('editWorkplace').value.trim(),
         position: document.getElementById('editPosition').value.trim(),
         contact_method: document.getElementById('editContact').value.trim(),
-        priority: document.getElementById('editPriority').value
+        priority: editPriorityValue
       };
       if (!payload.full_name || !payload.workplace) {
         var err = document.getElementById('editError');
@@ -255,19 +261,6 @@
         if (res.ok) loadList();
       });
     }
-  });
-
-  document.getElementById('rows').addEventListener('change', function (e) {
-    var sel = e.target.closest('.status-select');
-    if (!sel) return;
-    var code = sel.getAttribute('data-code');
-    apiPost({ action: 'adminUpdateStatus', password: adminPassword, vip_code: code, status: sel.value }).then(function (res) {
-      if (res.ok) {
-        var row = findRow(code);
-        if (row) row.status = sel.value;
-        renderStats();
-      }
-    });
   });
 
   document.getElementById('searchInput').addEventListener('input', function (e) {

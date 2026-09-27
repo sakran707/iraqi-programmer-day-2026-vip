@@ -22,16 +22,6 @@
 
 <main>
 
-  <div class="notice notice-restrict">
-    <b>تنويه:</b>
-    هذا الرابط خاص بأعضاء مجلس نقابة المبرمجين العراقيين واللجان المحددة حصراً. يُرجى عدم مشاركته أو نشره.
-  </div>
-
-  <div class="notice">
-    <b>تنويه:</b>
-    الأماكن المتاحة للشخصيات VIP هي الصف الثاني والثالث من قاعة الملتقى VIP.
-  </div>
-
   <!-- Step 1: entrant identification -->
   <section id="entrantSection" class="card">
     <h2>بيانات مُدخل الاستمارة</h2>
@@ -52,6 +42,16 @@
       <button type="button" id="changeEntrantBtn">تغيير</button>
     </div>
   </section>
+
+  <div class="notice notice-restrict">
+    <b>تنويه:</b>
+    هذا الرابط خاص بأعضاء مجلس نقابة المبرمجين العراقيين واللجان المحددة حصراً. يُرجى عدم مشاركته أو نشره.
+  </div>
+
+  <div class="notice">
+    <b>تنويه:</b>
+    الأماكن المتاحة للشخصيات VIP هي الصف الثاني والثالث من قاعة الملتقى VIP.
+  </div>
 
   <!-- Step 2: VIP data -->
   <section id="vipSection" class="card hidden">
@@ -125,6 +125,7 @@
 <footer class="site">يوم المبرمج العراقي 2026 — نقابة المبرمجين العراقيين</footer>
 
 <script src="assets/config.js?v=3"></script>
+<script src="assets/listbox.js"></script>
 <script src="assets/members.js"></script>
 <script>
 (function () {
@@ -466,11 +467,7 @@
 
     document.getElementById('summaryRows').innerHTML = sessionVips.map(function (v, i) {
       var priorityRow = multipleVips
-        ? '<div class="vip-summary-priority"><label>الأولوية</label><select data-index="' + i + '">' +
-            PRIORITY_OPTIONS.map(function (p) {
-              return '<option value="' + p + '"' + (p === v.priority ? ' selected' : '') + '>' + p + '</option>';
-            }).join('') +
-          '</select></div>'
+        ? '<div class="vip-summary-priority"><label>الأولوية</label><div class="priority-host" data-index="' + i + '"></div></div>'
         : '';
       return '<div class="vip-summary-card">' +
         '<div class="vip-summary-name">' + v.full_name + '</div>' +
@@ -478,15 +475,20 @@
         priorityRow +
         '</div>';
     }).join('');
+
+    if (multipleVips) {
+      sessionVips.forEach(function (v, i) {
+        var host = document.querySelector('.priority-host[data-index="' + i + '"]');
+        if (!host) return;
+        host.appendChild(createListbox(PRIORITY_OPTIONS, v.priority, function (p) {
+          sessionVips[i].priority = p;
+        }));
+      });
+    }
+
     document.getElementById('summaryEnteredBy').textContent = selectedEntrant.name;
     document.getElementById('summaryEnteredByPosition').textContent = selectedEntrant.position;
     showOnly(summarySection);
-  });
-
-  document.getElementById('summaryRows').addEventListener('change', function (e) {
-    var sel = e.target.closest('select[data-index]');
-    if (!sel) return;
-    sessionVips[Number(sel.getAttribute('data-index'))].priority = sel.value;
   });
 
   document.getElementById('confirmFinishBtn').addEventListener('click', function () {
