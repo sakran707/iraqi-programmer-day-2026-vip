@@ -451,7 +451,7 @@
         }
         warnBox.innerHTML = '<b>⚠️ تنويه:</b> توجد شخصية مسجلة مسبقاً بنفس الاسم أو باسم مقارب:' + matchesListHtml(matches);
         warnBox.classList.remove('hidden');
-      }).catch(function () { /* فحص مساعد غير حرج؛ لا داعي لإظهار خطأ إذا فشل */ });
+      }).catch(function (err) { console.error('checkVip (inline) failed:', err); /* فحص مساعد غير حرج؛ لا داعي لإظهار خطأ إذا فشل */ });
     }, 500);
   });
 
@@ -480,7 +480,8 @@
         }
         resultsBox.innerHTML = '<div class="notice"><b>⚠️ توجد شخصية/شخصيات مسجلة مسبقاً بنفس الاسم أو باسم مقارب:</b>' +
           matchesListHtml(matches) + '</div>';
-      }).catch(function () {
+      }).catch(function (err) {
+        console.error('checkVip (standalone) failed:', err);
         resultsBox.innerHTML = '<div class="notice notice-restrict">تعذر الاتصال بالخادم، حاول مرة أخرى.</div>';
       });
     }, 500);
