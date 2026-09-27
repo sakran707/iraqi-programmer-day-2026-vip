@@ -55,6 +55,17 @@
     </div>
   </div>
 
+  <!-- Standalone check: was this person already invited by a colleague? -->
+  <section id="checkSection" class="card hidden">
+    <h2>التأكد من دعوة شخصية VIP مسبقاً</h2>
+    <p class="muted" style="margin-bottom:12px">تأكد هل شخصية معينة تمت دعوتها مسبقاً من قبل زميلك بالنقابة، قبل ما تضيفها.</p>
+    <div class="field">
+      <label for="checkNameInput">اسم الشخصية</label>
+      <input type="text" id="checkNameInput" placeholder="اكتب اسم الشخصية للتأكد...">
+    </div>
+    <div id="checkResults"></div>
+  </section>
+
   <!-- Step 2: VIP data -->
   <section id="vipSection" class="card hidden">
     <h2>بيانات الشخصية VIP</h2>
@@ -194,6 +205,7 @@
     entrantChip.classList.remove('hidden');
     suggestions.classList.add('hidden');
     document.getElementById('postEntrantNotices').classList.add('hidden');
+    document.getElementById('checkSection').classList.remove('hidden');
     vipSection.classList.remove('hidden');
   }
 
@@ -203,6 +215,9 @@
     entrantPicker.classList.remove('hidden');
     entrantChip.classList.add('hidden');
     document.getElementById('postEntrantNotices').classList.remove('hidden');
+    document.getElementById('checkSection').classList.add('hidden');
+    document.getElementById('checkNameInput').value = '';
+    document.getElementById('checkResults').innerHTML = '';
     vipSection.classList.add('hidden');
     successSection.classList.add('hidden');
   });
@@ -396,6 +411,23 @@
   }
 
   /** تحقق تقريبي (وليس حرفياً) من وجود شخصية بنفس الاسم أو اسم مقارب مسجلة مسبقاً */
+  function checkVipMatches(name) {
+    return fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ action: 'checkVip', name: name })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      return (res.ok && res.matches) ? res.matches : [];
+    });
+  }
+
+  function matchesListHtml(matches) {
+    return matches.map(function (m) {
+      return '<div style="margin-top:6px">' + m.full_name + ' — ' + m.workplace +
+        '<br><span class="muted">تمت دعوتها من قبل: ' + m.entered_by_name + '</span></div>';
+    }).join('');
+  }
+
   var dupCheckTimer = null;
   document.getElementById('vipName').addEventListener('input', function () {
     clearTimeout(dupCheckTimer);
@@ -406,22 +438,45 @@
       return;
     }
     dupCheckTimer = setTimeout(function () {
-      fetch(APPS_SCRIPT_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-        body: JSON.stringify({ action: 'checkVip', name: name })
-      }).then(function (r) { return r.json(); }).then(function (res) {
-        if (!res.ok || !res.matches || res.matches.length === 0) {
+      checkVipMatches(name).then(function (matches) {
+        if (matches.length === 0) {
           warnBox.classList.add('hidden');
           return;
         }
-        warnBox.innerHTML = '<b>⚠️ تنويه:</b> توجد شخصية مسجلة مسبقاً بنفس الاسم أو باسم مقارب:' +
-          res.matches.map(function (m) {
-            return '<div style="margin-top:6px">' + m.full_name + ' — ' + m.workplace +
-              '<br><span class="muted">تمت دعوتها من قبل: ' + m.entered_by_name + '</span></div>';
-          }).join('');
+        warnBox.innerHTML = '<b>⚠️ تنويه:</b> توجد شخصية مسجلة مسبقاً بنفس الاسم أو باسم مقارب:' + matchesListHtml(matches);
         warnBox.classList.remove('hidden');
       }).catch(function () { /* فحص مساعد غير حرج؛ لا داعي لإظهار خطأ إذا فشل */ });
+    }, 500);
+  });
+
+  /** أداة تحقق مستقلة: يكتب العضو أي اسم للتأكد إذا دعاه زميل مسبقاً، بدون الحاجة لتعبئة استمارة الإضافة */
+  var standaloneCheckTimer = null;
+  document.getElementById('checkNameInput').addEventListener('input', function () {
+    clearTimeout(standaloneCheckTimer);
+    var name = this.value.trim();
+    var resultsBox = document.getElementById('checkResults');
+    if (name.length < 3) {
+      resultsBox.innerHTML = '';
+      return;
+    }
+    if (!APPS_SCRIPT_URL || APPS_SCRIPT_URL.indexOf('PASTE_') === 0) {
+      resultsBox.innerHTML = '<div class="notice notice-restrict">لم يتم ربط النظام بقاعدة البيانات بعد.</div>';
+      return;
+    }
+    resultsBox.innerHTML = '<p class="muted">جارٍ البحث...</p>';
+    standaloneCheckTimer = setTimeout(function () {
+      checkVipMatches(name).then(function (matches) {
+        if (name !== document.getElementById('checkNameInput').value.trim()) return; // تجاهل نتيجة بحث قديم
+        if (matches.length === 0) {
+          resultsBox.innerHTML = '<div class="notice" style="background:var(--pass-soft);border-color:#B9E0CB;color:var(--pass)">' +
+            '<b>✓ لا توجد نتيجة مطابقة.</b> هذه الشخصية غير مسجلة حالياً، تكدر تضيفها.</div>';
+          return;
+        }
+        resultsBox.innerHTML = '<div class="notice"><b>⚠️ توجد شخصية/شخصيات مسجلة مسبقاً بنفس الاسم أو باسم مقارب:</b>' +
+          matchesListHtml(matches) + '</div>';
+      }).catch(function () {
+        resultsBox.innerHTML = '<div class="notice notice-restrict">تعذر الاتصال بالخادم، حاول مرة أخرى.</div>';
+      });
     }, 500);
   });
 
