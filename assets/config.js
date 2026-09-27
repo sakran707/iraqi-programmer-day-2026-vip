@@ -5,6 +5,6 @@
  *
  * بعد نشر Code.gs كـ Web App (راجع README.md)، الصق رابط /exec هنا:
  */
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwOsRAgsK0gwM2xeuKUshcBPpaDr3SrwIt5PiibHHb1uQ-q78AmngtPTplTinJ6YAWEBA/exec';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwh7v-0RbsF4yFFKnTH0ZoGkMqTH_hGfck2CHcT4YSyLhgOTrJ7H-rXSkSTQf2VIgoOnA/exec';
 
 const EVENT_YEAR = '2026';
