@@ -89,7 +89,7 @@
         <thead>
           <tr>
             <th>رقم VIP</th><th>اسم الشخصية</th><th>مكان العمل</th><th>المنصب</th>
-            <th>أضيفت بواسطة</th><th>الأولوية</th><th>الحالة</th><th>إجراءات</th>
+            <th>أضيفت بواسطة</th><th>الأولوية</th><th>📄 كتاب</th><th>الحالة</th><th>إجراءات</th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -203,13 +203,14 @@
     var rows = allRows.filter(function (r) { return matches(r, document.getElementById('searchInput').value); });
     var headers = [
       'رقم VIP', 'اسم الشخصية', 'مكان العمل', 'المنصب', 'طريقة التواصل',
-      'أضيفت بواسطة', 'منصب المُدخل', 'الأولوية', 'الحالة', 'تاريخ التسجيل', 'وقت الحضور'
+      'أضيفت بواسطة', 'منصب المُدخل', 'الأولوية', 'يحتاج كتاب رسمي', 'الحالة', 'تاريخ التسجيل', 'وقت الحضور'
     ];
     var lines = [headers.map(csvField).join(',')];
     rows.forEach(function (r) {
       lines.push([
         r.vip_code, r.full_name, r.workplace, r.position || '—', r.contact_method || '—',
-        r.entered_by_name, r.entered_by_position, r.priority || 'عادية', r.status,
+        r.entered_by_name, r.entered_by_position, r.priority || 'عادية',
+        r.needs_letter === 'نعم' ? 'نعم' : 'لا', r.status,
         formatDateForExport(r.created_at), formatDateForExport(r.attendance_time)
       ].map(csvField).join(','));
     });
@@ -248,6 +249,7 @@
         '<td>' + (r.position || '—') + '</td>' +
         '<td>' + r.entered_by_name + '</td>' +
         '<td>' + (r.priority || 'عادية') + '</td>' +
+        '<td>' + (r.needs_letter === 'نعم' ? 'نعم' : 'لا') + '</td>' +
         '<td>' + r.status + '</td>' +
       '</tr>';
     }).join('');
@@ -273,7 +275,7 @@
         '<div>لم يحضر: <b>' + allRows.filter(function (r) { return r.status === 'لم يحضر'; }).length + '</b></div>' +
       '</div>' +
       '<table>' +
-        '<thead><tr><th>رقم VIP</th><th>الاسم</th><th>مكان العمل</th><th>المنصب</th><th>أضيفت بواسطة</th><th>الأولوية</th><th>الحالة</th></tr></thead>' +
+        '<thead><tr><th>رقم VIP</th><th>الاسم</th><th>مكان العمل</th><th>المنصب</th><th>أضيفت بواسطة</th><th>الأولوية</th><th>كتاب رسمي</th><th>الحالة</th></tr></thead>' +
         '<tbody>' + rowsHtml + '</tbody>' +
       '</table>' +
       '<h2 class="p-subhead">عدد الشخصيات المضافة حسب كل عضو</h2>' +
@@ -299,6 +301,10 @@
     return '<span class="badge ' + (PRIORITY_CLASS[p] || 'invited') + '">' + p + '</span>';
   }
 
+  function needsLetterBadge(needsLetter) {
+    return needsLetter === 'نعم' ? '<span class="badge confirmed">نعم</span>' : '—';
+  }
+
   function renderTable(query) {
     var rows = allRows.filter(function (r) { return matches(r, query); });
     document.getElementById('rows').innerHTML = rows.map(function (r) {
@@ -309,6 +315,7 @@
         '<td>' + (r.position || '—') + '</td>' +
         '<td>' + r.entered_by_name + '</td>' +
         '<td>' + priorityBadge(r.priority) + '</td>' +
+        '<td>' + needsLetterBadge(r.needs_letter) + '</td>' +
         '<td class="status-cell" data-code="' + r.vip_code + '"></td>' +
         '<td class="actions-cell">' +
           '<button class="btn btn-outline btn-sm" data-action="detail" data-code="' + r.vip_code + '">تفاصيل</button>' +
@@ -351,6 +358,7 @@
       '<div class="detail-row"><span>أضيفت بواسطة</span><b>' + r.entered_by_name + '</b></div>' +
       '<div class="detail-row"><span>منصب المُدخل</span><b>' + r.entered_by_position + '</b></div>' +
       '<div class="detail-row"><span>الأولوية</span><b>' + (r.priority || 'عادية') + '</b></div>' +
+      '<div class="detail-row"><span>يحتاج كتاب رسمي بتوقيع النقيب</span><b>' + (r.needs_letter === 'نعم' ? 'نعم' : 'لا') + '</b></div>' +
       '<div class="detail-row"><span>الحالة</span><b>' + r.status + '</b></div>' +
       '<div class="detail-row"><span>وقت الحضور</span><b>' + (r.attendance_time || '—') + '</b></div>' +
       '<div class="qr-wrap" style="margin:16px auto"><img src="' + qr + '" alt="QR"></div>' +
@@ -372,6 +380,9 @@
       '<div class="field"><label>المنصب</label><input type="text" id="editPosition" value="' + (r.position || '').replace(/"/g, '&quot;') + '"></div>' +
       '<div class="field"><label>طريقة التواصل</label><input type="text" id="editContact" value="' + (r.contact_method || '').replace(/"/g, '&quot;') + '"></div>' +
       '<div class="field"><label>الأولوية</label><div id="editPriorityHost"></div></div>' +
+      '<div class="field checkbox-field">' +
+        '<label class="checkbox-label"><input type="checkbox" id="editNeedsLetter"' + (r.needs_letter === 'نعم' ? ' checked' : '') + '> يحتاج كتاب رسمي بتوقيع السيد النقيب</label>' +
+      '</div>' +
       '<div id="editError" class="muted hidden" style="color:var(--fail)"></div>' +
       '<div class="row-2">' +
       '<button type="button" class="btn btn-outline" id="cancelEditBtn">إلغاء</button>' +
@@ -389,7 +400,8 @@
         workplace: document.getElementById('editWorkplace').value.trim(),
         position: document.getElementById('editPosition').value.trim(),
         contact_method: document.getElementById('editContact').value.trim(),
-        priority: editPriorityValue
+        priority: editPriorityValue,
+        needs_letter: document.getElementById('editNeedsLetter').checked
       };
       if (!payload.full_name || !payload.workplace) {
         var err = document.getElementById('editError');

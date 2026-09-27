@@ -79,6 +79,12 @@
         <label for="vipContact">طريقة التواصل <span class="opt">(اختياري)</span></label>
         <input type="text" id="vipContact" placeholder="رقم هاتف / واتساب / بريد إلكتروني">
       </div>
+      <div class="field checkbox-field">
+        <label class="checkbox-label">
+          <input type="checkbox" id="vipNeedsLetter">
+          هل يحتاج الضيف كتاب رسمي بتوقيع السيد النقيب؟
+        </label>
+      </div>
       <div id="vipError" class="muted hidden" style="color:var(--fail)"></div>
       <button type="button" id="addVipBtn" class="btn btn-primary">إضافة الشخصية</button>
     </div>
@@ -383,6 +389,7 @@
     document.getElementById('vipWorkplace').value = '';
     document.getElementById('vipPosition').value = '';
     document.getElementById('vipContact').value = '';
+    document.getElementById('vipNeedsLetter').checked = false;
     vipError.classList.add('hidden');
   }
 
@@ -399,6 +406,7 @@
     var workplace = document.getElementById('vipWorkplace').value.trim();
     var position = document.getElementById('vipPosition').value.trim();
     var contact = document.getElementById('vipContact').value.trim();
+    var needsLetter = document.getElementById('vipNeedsLetter').checked;
 
     if (!fullName || !workplace) {
       vipError.textContent = 'الرجاء إدخال اسم الشخصية ومكان العمل (حقلان إجباريان).';
@@ -424,6 +432,7 @@
         workplace: workplace,
         position: position,
         contact_method: contact,
+        needs_letter: needsLetter,
         entered_by_name: selectedEntrant.name,
         entered_by_position: selectedEntrant.position
       })

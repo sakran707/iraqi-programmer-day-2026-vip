@@ -15,7 +15,8 @@ var SHEET_NAME = 'VIPs';
 var EVENT_YEAR = '2026';
 var HEADERS = [
   'vip_id', 'vip_code', 'full_name', 'workplace', 'position', 'contact_method',
-  'status', 'priority', 'entered_by_name', 'entered_by_position', 'created_at', 'updated_at', 'attendance_time'
+  'status', 'priority', 'entered_by_name', 'entered_by_position', 'created_at', 'updated_at', 'attendance_time',
+  'needs_letter'
 ];
 var VALID_STATUSES = ['مدعو', 'تم التأكيد', 'حضر', 'لم يحضر'];
 var VALID_PRIORITIES = ['عالية', 'متوسطة', 'عادية'];
@@ -91,6 +92,7 @@ function handleAddVip_(body) {
   var workplace = String(body.workplace || '').trim();
   var position = String(body.position || '').trim();
   var contactMethod = String(body.contact_method || '').trim();
+  var needsLetter = body.needs_letter ? 'نعم' : 'لا';
   var enteredByName = String(body.entered_by_name || '').trim();
   var enteredByPosition = String(body.entered_by_position || '').trim();
 
@@ -108,7 +110,7 @@ function handleAddVip_(body) {
 
     sheet.appendRow([
       seq, vipCode, fullName, workplace, position, contactMethod,
-      'مدعو', DEFAULT_PRIORITY, enteredByName, enteredByPosition, now, now, ''
+      'مدعو', DEFAULT_PRIORITY, enteredByName, enteredByPosition, now, now, '', needsLetter
     ]);
 
     return { ok: true, vip_id: seq, vip_code: vipCode, created_at: now };
@@ -178,6 +180,7 @@ function handleAdminList_(body) {
       workplace: r.workplace,
       position: r.position,
       contact_method: r.contact_method,
+      needs_letter: r.needs_letter === 'نعم' ? 'نعم' : 'لا',
       status: r.status,
       priority: r.priority || DEFAULT_PRIORITY,
       entered_by_name: r.entered_by_name,
@@ -239,6 +242,9 @@ function handleAdminUpdateVip_(body) {
     });
     if (typeof body.priority === 'string' && VALID_PRIORITIES.indexOf(body.priority.trim()) !== -1) {
       sheet.getRange(row._row, HEADERS.indexOf('priority') + 1).setValue(body.priority.trim());
+    }
+    if (typeof body.needs_letter === 'boolean') {
+      sheet.getRange(row._row, HEADERS.indexOf('needs_letter') + 1).setValue(body.needs_letter ? 'نعم' : 'لا');
     }
     var updatedCol = HEADERS.indexOf('updated_at') + 1;
     sheet.getRange(row._row, updatedCol).setValue(new Date().toISOString());

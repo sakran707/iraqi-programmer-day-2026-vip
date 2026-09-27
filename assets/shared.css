@@ -129,6 +129,10 @@ input:focus,select:focus,textarea:focus{
 
 .field{margin-bottom:14px;position:relative}
 
+.checkbox-field{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px}
+.checkbox-label{display:flex;align-items:flex-start;gap:10px;font-size:.92rem;font-weight:600;color:var(--ink);cursor:pointer;margin:0}
+.checkbox-label input[type=checkbox]{width:19px;height:19px;flex-shrink:0;accent-color:var(--navy);cursor:pointer;margin-top:1px}
+
 .btn{
   font-family:inherit;
   font-size:1rem;
