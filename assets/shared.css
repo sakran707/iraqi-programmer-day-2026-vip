@@ -43,8 +43,12 @@ header.site{
   text-align:center;
 }
 header.site .logo{
-  width:88px;height:88px;
-  display:block;margin:0 auto 12px;
+  width:84px;height:84px;
+  display:block;margin:0 auto 14px;
+  border-radius:50%;
+  border:2px solid var(--gold);
+  box-shadow:0 6px 18px rgba(0,0,0,.35);
+  background:#fff;
 }
 header.site .eyebrow{
   font-size:.82rem;
