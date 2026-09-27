@@ -16,6 +16,24 @@
   .actions-cell{display:flex;gap:6px}
   .detail-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line);font-size:.9rem}
   .detail-row b{color:var(--navy)}
+
+  #printReport{display:none}
+  #printReport .p-head{display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--navy);padding-bottom:10px;margin-bottom:14px}
+  #printReport .p-head img{width:52px;height:52px;border-radius:50%}
+  #printReport .p-head h1{font-size:1.15rem;color:var(--navy)}
+  #printReport .p-head p{font-size:.85rem;color:var(--muted)}
+  #printReport .p-stats{display:flex;gap:18px;margin-bottom:16px;font-size:.9rem}
+  #printReport .p-stats b{color:var(--navy)}
+  #printReport table{width:100%;border-collapse:collapse;font-size:.8rem}
+  #printReport th,#printReport td{border:1px solid #ccc;padding:6px 8px;text-align:right}
+  #printReport th{background:#EEF1F4;color:var(--navy)}
+  #printReport .p-footer{margin-top:16px;font-size:.75rem;color:var(--muted)}
+
+  @media print{
+    body.printing > *:not(#printReport){display:none !important}
+    body.printing #printReport{display:block}
+    @page{size:A4;margin:14mm}
+  }
 </style>
 </head>
 <body>
@@ -50,7 +68,8 @@
 
     <div class="toolbar">
       <input type="text" id="searchInput" placeholder="ابحث بالاسم، مكان العمل، المنصب، رقم VIP، أو اسم المُدخل">
-      <button type="button" id="exportBtn" class="btn btn-outline btn-sm">⬇ تصدير البيانات</button>
+      <button type="button" id="exportBtn" class="btn btn-outline btn-sm">⬇ تصدير Excel</button>
+      <button type="button" id="printBtn" class="btn btn-outline btn-sm">🖨 تقرير PDF</button>
       <button type="button" id="refreshBtn" class="btn btn-outline btn-sm">تحديث</button>
     </div>
 
@@ -72,6 +91,8 @@
 <footer class="site">يوم المبرمج العراقي 2026 — لوحة إدارية، هذه البيانات غير عامة</footer>
 
 <div id="modalHost"></div>
+
+<div id="printReport"></div>
 
 <script src="assets/config.js?v=3"></script>
 <script src="assets/listbox.js"></script>
@@ -175,6 +196,54 @@
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
   }
+
+  function printReport() {
+    var rows = allRows.filter(function (r) { return matches(r, document.getElementById('searchInput').value); });
+    var now = new Date();
+    var generatedAt = now.toISOString().replace('T', ' ').slice(0, 16);
+    var query = document.getElementById('searchInput').value.trim();
+
+    var rowsHtml = rows.map(function (r) {
+      return '<tr>' +
+        '<td>' + r.vip_code + '</td>' +
+        '<td>' + r.full_name + '</td>' +
+        '<td>' + r.workplace + '</td>' +
+        '<td>' + (r.position || '—') + '</td>' +
+        '<td>' + r.entered_by_name + '</td>' +
+        '<td>' + (r.priority || 'عادية') + '</td>' +
+        '<td>' + r.status + '</td>' +
+      '</tr>';
+    }).join('');
+
+    document.getElementById('printReport').innerHTML =
+      '<div class="p-head">' +
+        '<img src="assets/union-logo.webp" alt="">' +
+        '<div>' +
+          '<h1>تقرير الشخصيات VIP — يوم المبرمج العراقي 2026</h1>' +
+          '<p>نقابة المبرمجين العراقيين — تاريخ التقرير: ' + generatedAt +
+          (query ? ' — تصفية بالبحث: "' + query + '"' : '') +
+          '</p>' +
+        '</div>' +
+      '</div>' +
+      '<div class="p-stats">' +
+        '<div>الإجمالي: <b>' + allRows.length + '</b></div>' +
+        '<div>تم التأكيد: <b>' + allRows.filter(function (r) { return r.status === 'تم التأكيد'; }).length + '</b></div>' +
+        '<div>حضر: <b>' + allRows.filter(function (r) { return r.status === 'حضر'; }).length + '</b></div>' +
+        '<div>لم يحضر: <b>' + allRows.filter(function (r) { return r.status === 'لم يحضر'; }).length + '</b></div>' +
+      '</div>' +
+      '<table>' +
+        '<thead><tr><th>رقم VIP</th><th>الاسم</th><th>مكان العمل</th><th>المنصب</th><th>أضيفت بواسطة</th><th>الأولوية</th><th>الحالة</th></tr></thead>' +
+        '<tbody>' + rowsHtml + '</tbody>' +
+      '</table>' +
+      '<div class="p-footer">عدد الشخصيات بالتقرير: ' + rows.length + ' — وثيقة إدارية، غير مخصصة للنشر العام</div>';
+
+    document.body.classList.add('printing');
+    window.print();
+  }
+
+  window.addEventListener('afterprint', function () {
+    document.body.classList.remove('printing');
+  });
 
   var PRIORITIES = ['عالية', 'متوسطة', 'عادية'];
   var PRIORITY_CLASS = { 'عالية': 'attended', 'متوسطة': 'confirmed', 'عادية': 'invited' };
@@ -308,6 +377,7 @@
   });
   document.getElementById('refreshBtn').addEventListener('click', function () { loadList(); });
   document.getElementById('exportBtn').addEventListener('click', exportCsv);
+  document.getElementById('printBtn').addEventListener('click', printReport);
 
   document.getElementById('gateBtn').addEventListener('click', function () {
     adminPassword = document.getElementById('pwInput').value;
