@@ -75,12 +75,20 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/XXXXXXXX/exec';
 
 ```
 vip_id | vip_code | full_name | workplace | position | contact_method |
-status | entered_by_name | entered_by_position | created_at | updated_at |
-attendance_time
+status | priority | entered_by_name | entered_by_position | created_at |
+updated_at | attendance_time
 ```
 
 تُنشأ هذه الورقة والعناوين تلقائياً عند أول استخدام للنظام (لا حاجة لإعدادها
-يدوياً).
+يدوياً). إذا كان الجدول موجوداً مسبقاً من نسخة أقدم من الكود، يكمّل الخادم
+تلقائياً أي عمود جديد (مثل `priority`) دون المساس بالبيانات الموجودة.
+
+## أولوية الحضور
+
+بسبب محدودية المقاعد المخصصة للشخصيات VIP، إذا سجّل العضو أكثر من شخصية
+بنفس الجلسة، تظهر له عند الضغط على "إنهاء" قائمة لتحديد أولوية كل شخصية
+(عالية / متوسطة / عادية — الافتراضي "عادية"). تظهر هذه الأولوية بلوحة
+الإدارة كعمود ملوّن، وتُستخدم لمساعدة المنظمين على القرار عند نفاد الأماكن.
 
 ## رموز VIP
 

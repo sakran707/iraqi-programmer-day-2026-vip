@@ -15,15 +15,26 @@ var SHEET_NAME = 'VIPs';
 var EVENT_YEAR = '2026';
 var HEADERS = [
   'vip_id', 'vip_code', 'full_name', 'workplace', 'position', 'contact_method',
-  'status', 'entered_by_name', 'entered_by_position', 'created_at', 'updated_at', 'attendance_time'
+  'status', 'priority', 'entered_by_name', 'entered_by_position', 'created_at', 'updated_at', 'attendance_time'
 ];
 var VALID_STATUSES = ['مدعو', 'تم التأكيد', 'حضر', 'لم يحضر'];
+var VALID_PRIORITIES = ['عالية', 'متوسطة', 'عادية'];
+var DEFAULT_PRIORITY = 'عادية';
 
 function getSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(SHEET_NAME);
   if (!sheet) sheet = ss.insertSheet(SHEET_NAME);
-  if (sheet.getLastRow() === 0) sheet.appendRow(HEADERS);
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(HEADERS);
+  } else {
+    // ترحيل: إذا أُضيفت أعمدة جديدة بالكود (مثل priority) بعد إنشاء الجدول، كمّل عناوينها بدون فقدان البيانات الحالية
+    var existingCols = sheet.getLastColumn();
+    if (existingCols < HEADERS.length) {
+      sheet.getRange(1, existingCols + 1, 1, HEADERS.length - existingCols)
+        .setValues([HEADERS.slice(existingCols)]);
+    }
+  }
   return sheet;
 }
 
@@ -97,10 +108,43 @@ function handleAddVip_(body) {
 
     sheet.appendRow([
       seq, vipCode, fullName, workplace, position, contactMethod,
-      'مدعو', enteredByName, enteredByPosition, now, now, ''
+      'مدعو', DEFAULT_PRIORITY, enteredByName, enteredByPosition, now, now, ''
     ]);
 
     return { ok: true, vip_id: seq, vip_code: vipCode, created_at: now };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * يستخدمها العضو (بدون كلمة مرور) لتحديد أولوية الحضور بين أكثر من شخصية
+ * VIP أضافها بنفس الجلسة، بسبب محدودية المقاعد المخصصة. لا يعرض أو يعدّل
+ * أي بيانات غير الأولوية نفسها.
+ */
+function handleSetPriorities_(body) {
+  var items = Array.isArray(body.items) ? body.items : [];
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getSheet_();
+    var rows = readAllRows_(sheet);
+    var priorityCol = HEADERS.indexOf('priority') + 1;
+    var updatedCol = HEADERS.indexOf('updated_at') + 1;
+    var now = new Date().toISOString();
+    var updated = 0;
+
+    items.forEach(function (item) {
+      var priority = String(item.priority || '').trim();
+      if (VALID_PRIORITIES.indexOf(priority) === -1) return;
+      var row = rows.filter(function (r) { return r.vip_code === item.vip_code; })[0];
+      if (!row) return;
+      sheet.getRange(row._row, priorityCol).setValue(priority);
+      sheet.getRange(row._row, updatedCol).setValue(now);
+      updated++;
+    });
+
+    return { ok: true, updated: updated };
   } finally {
     lock.releaseLock();
   }
@@ -135,6 +179,7 @@ function handleAdminList_(body) {
       position: r.position,
       contact_method: r.contact_method,
       status: r.status,
+      priority: r.priority || DEFAULT_PRIORITY,
       entered_by_name: r.entered_by_name,
       entered_by_position: r.entered_by_position,
       created_at: r.created_at,
@@ -192,6 +237,9 @@ function handleAdminUpdateVip_(body) {
         sheet.getRange(row._row, col).setValue(body[f].trim());
       }
     });
+    if (typeof body.priority === 'string' && VALID_PRIORITIES.indexOf(body.priority.trim()) !== -1) {
+      sheet.getRange(row._row, HEADERS.indexOf('priority') + 1).setValue(body.priority.trim());
+    }
     var updatedCol = HEADERS.indexOf('updated_at') + 1;
     sheet.getRange(row._row, updatedCol).setValue(new Date().toISOString());
     return { ok: true };
@@ -235,6 +283,7 @@ function doPost(e) {
     var action = body.action;
     if (action === 'addVip') return jsonOut_(handleAddVip_(body));
     if (action === 'verify') return jsonOut_(handleVerify_(body.code || ''));
+    if (action === 'setPriorities') return jsonOut_(handleSetPriorities_(body));
     if (action === 'adminList') return jsonOut_(handleAdminList_(body));
     if (action === 'adminUpdateStatus') return jsonOut_(handleAdminUpdateStatus_(body));
     if (action === 'adminUpdateVip') return jsonOut_(handleAdminUpdateVip_(body));

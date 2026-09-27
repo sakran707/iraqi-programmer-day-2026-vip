@@ -59,7 +59,7 @@
         <thead>
           <tr>
             <th>رقم VIP</th><th>اسم الشخصية</th><th>مكان العمل</th><th>المنصب</th>
-            <th>أضيفت بواسطة</th><th>الحالة</th><th>إجراءات</th>
+            <th>أضيفت بواسطة</th><th>الأولوية</th><th>الحالة</th><th>إجراءات</th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -136,10 +136,18 @@
       .some(function (v) { return normalize(v).indexOf(q) !== -1; });
   }
 
+  var PRIORITIES = ['عالية', 'متوسطة', 'عادية'];
+  var PRIORITY_CLASS = { 'عالية': 'attended', 'متوسطة': 'confirmed', 'عادية': 'invited' };
+
   function statusOptionsHtml(current) {
     return STATUSES.map(function (s) {
       return '<option value="' + s + '"' + (s === current ? ' selected' : '') + '>' + s + '</option>';
     }).join('');
+  }
+
+  function priorityBadge(priority) {
+    var p = priority || 'عادية';
+    return '<span class="badge ' + (PRIORITY_CLASS[p] || 'invited') + '">' + p + '</span>';
   }
 
   function renderTable(query) {
@@ -151,6 +159,7 @@
         '<td>' + r.workplace + '</td>' +
         '<td>' + (r.position || '—') + '</td>' +
         '<td>' + r.entered_by_name + '</td>' +
+        '<td>' + priorityBadge(r.priority) + '</td>' +
         '<td><select class="status-select" data-code="' + r.vip_code + '">' + statusOptionsHtml(r.status) + '</select></td>' +
         '<td class="actions-cell">' +
           '<button class="btn btn-outline btn-sm" data-action="detail" data-code="' + r.vip_code + '">تفاصيل</button>' +
@@ -182,6 +191,7 @@
       '<div class="detail-row"><span>طريقة التواصل</span><b>' + (r.contact_method || '—') + '</b></div>' +
       '<div class="detail-row"><span>أضيفت بواسطة</span><b>' + r.entered_by_name + '</b></div>' +
       '<div class="detail-row"><span>منصب المُدخل</span><b>' + r.entered_by_position + '</b></div>' +
+      '<div class="detail-row"><span>الأولوية</span><b>' + (r.priority || 'عادية') + '</b></div>' +
       '<div class="detail-row"><span>الحالة</span><b>' + r.status + '</b></div>' +
       '<div class="detail-row"><span>وقت الحضور</span><b>' + (r.attendance_time || '—') + '</b></div>' +
       '<div class="qr-wrap" style="margin:16px auto"><img src="' + qr + '" alt="QR"></div>' +
@@ -202,6 +212,9 @@
       '<div class="field"><label>مكان العمل</label><input type="text" id="editWorkplace" value="' + r.workplace.replace(/"/g, '&quot;') + '"></div>' +
       '<div class="field"><label>المنصب</label><input type="text" id="editPosition" value="' + (r.position || '').replace(/"/g, '&quot;') + '"></div>' +
       '<div class="field"><label>طريقة التواصل</label><input type="text" id="editContact" value="' + (r.contact_method || '').replace(/"/g, '&quot;') + '"></div>' +
+      '<div class="field"><label>الأولوية</label><select id="editPriority">' +
+        PRIORITIES.map(function (p) { return '<option value="' + p + '"' + (p === (r.priority || 'عادية') ? ' selected' : '') + '>' + p + '</option>'; }).join('') +
+      '</select></div>' +
       '<div id="editError" class="muted hidden" style="color:var(--fail)"></div>' +
       '<div class="row-2">' +
       '<button type="button" class="btn btn-outline" id="cancelEditBtn">إلغاء</button>' +
@@ -214,7 +227,8 @@
         full_name: document.getElementById('editName').value.trim(),
         workplace: document.getElementById('editWorkplace').value.trim(),
         position: document.getElementById('editPosition').value.trim(),
-        contact_method: document.getElementById('editContact').value.trim()
+        contact_method: document.getElementById('editContact').value.trim(),
+        priority: document.getElementById('editPriority').value
       };
       if (!payload.full_name || !payload.workplace) {
         var err = document.getElementById('editError');

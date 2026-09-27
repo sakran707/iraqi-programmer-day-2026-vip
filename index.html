@@ -22,6 +22,11 @@
 
 <main>
 
+  <div class="notice notice-restrict">
+    <b>تنويه:</b>
+    هذا الرابط خاص بأعضاء مجلس نقابة المبرمجين العراقيين واللجان المحددة حصراً. يُرجى عدم مشاركته أو نشره.
+  </div>
+
   <div class="notice">
     <b>تنويه:</b>
     الأماكن المتاحة للشخصيات VIP هي الصف الثاني والثالث من قاعة الملتقى VIP.
@@ -94,14 +99,11 @@
   <!-- Summary before final confirm -->
   <section id="summarySection" class="card hidden">
     <h2>تم تسجيل الشخصيات التالية</h2>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>الشخصية</th><th>مكان العمل</th><th>المنصب</th></tr>
-        </thead>
-        <tbody id="summaryRows"></tbody>
-      </table>
+    <div id="priorityNote" class="notice hidden">
+      <b>تنويه:</b>
+      بسبب محدودية المقاعد المخصصة للشخصيات VIP، حدد أولوية الحضور لكل شخصية — تُعتمد هذه الأولوية إذا زاد عدد المسجَّلين عن المقاعد المتاحة.
     </div>
+    <div id="summaryRows" class="stack"></div>
     <div style="margin-top:14px" class="muted">
       أضيفت بواسطة: <b id="summaryEnteredBy"></b><br>
       المنصب: <b id="summaryEnteredByPosition"></b>
@@ -296,7 +298,7 @@
         return;
       }
       sessionVips.push({
-        full_name: fullName, workplace: workplace, position: position, vip_code: res.vip_code
+        full_name: fullName, workplace: workplace, position: position, vip_code: res.vip_code, priority: 'عادية'
       });
       var verifyUrl = verifyUrlFor(res.vip_code);
       var qrUrl = qrUrlFor(verifyUrl);
@@ -317,17 +319,61 @@
     showOnly(vipSection);
   });
 
+  var PRIORITY_OPTIONS = ['عالية', 'متوسطة', 'عادية'];
+  var multipleVips = false;
+
   document.getElementById('finishBtn').addEventListener('click', function () {
-    document.getElementById('summaryRows').innerHTML = sessionVips.map(function (v) {
-      return '<tr><td>' + v.full_name + '</td><td>' + v.workplace + '</td><td>' + (v.position || '—') + '</td></tr>';
+    multipleVips = sessionVips.length > 1;
+    document.getElementById('priorityNote').classList.toggle('hidden', !multipleVips);
+
+    document.getElementById('summaryRows').innerHTML = sessionVips.map(function (v, i) {
+      var priorityRow = multipleVips
+        ? '<div class="vip-summary-priority"><label>الأولوية</label><select data-index="' + i + '">' +
+            PRIORITY_OPTIONS.map(function (p) {
+              return '<option value="' + p + '"' + (p === v.priority ? ' selected' : '') + '>' + p + '</option>';
+            }).join('') +
+          '</select></div>'
+        : '';
+      return '<div class="vip-summary-card">' +
+        '<div class="vip-summary-name">' + v.full_name + '</div>' +
+        '<div class="vip-summary-meta">' + v.workplace + (v.position ? ' — ' + v.position : '') + '</div>' +
+        priorityRow +
+        '</div>';
     }).join('');
     document.getElementById('summaryEnteredBy').textContent = selectedEntrant.name;
     document.getElementById('summaryEnteredByPosition').textContent = selectedEntrant.position;
     showOnly(summarySection);
   });
 
+  document.getElementById('summaryRows').addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-index]');
+    if (!sel) return;
+    sessionVips[Number(sel.getAttribute('data-index'))].priority = sel.value;
+  });
+
   document.getElementById('confirmFinishBtn').addEventListener('click', function () {
-    showOnly(thankYouSection);
+    var confirmBtn = document.getElementById('confirmFinishBtn');
+    if (!multipleVips) { showOnly(thankYouSection); return; }
+
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'جارٍ الحفظ...';
+    fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: 'setPriorities',
+        items: sessionVips.map(function (v) { return { vip_code: v.vip_code, priority: v.priority }; })
+      })
+    }).then(function () {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'تأكيد وإنهاء';
+      showOnly(thankYouSection);
+    }).catch(function () {
+      // البيانات الأساسية محفوظة أصلاً؛ فشل حفظ الأولوية فقط لا يمنع إنهاء الجلسة
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'تأكيد وإنهاء';
+      showOnly(thankYouSection);
+    });
   });
 
   document.getElementById('restartBtn').addEventListener('click', function () {

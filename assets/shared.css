@@ -95,6 +95,8 @@ main{max-width:520px;margin:0 auto;padding:20px 16px 40px}
   margin-bottom:16px;
 }
 .notice b{display:block;margin-bottom:4px;color:#7A5400}
+.notice.notice-restrict{background:var(--fail-soft);border-color:#E7B9B5;color:var(--fail)}
+.notice.notice-restrict b{color:#7A241B}
 
 label{
   font-size:.9rem;
@@ -216,6 +218,21 @@ input:focus,select:focus,textarea:focus{
 }
 .qr-wrap{margin:14px auto;width:180px;height:180px;border:1px solid var(--line);border-radius:var(--radius-sm);padding:6px;background:#fff}
 .qr-wrap img{width:100%;height:100%;display:block}
+
+/* Summary cards (index.html, mobile-friendly alternative to a wide table) */
+.vip-summary-card{
+  border:1px solid var(--line);
+  border-radius:var(--radius-sm);
+  padding:12px 14px;
+}
+.vip-summary-name{font-weight:800;color:var(--navy)}
+.vip-summary-meta{font-size:.85rem;color:var(--muted);margin:2px 0 4px}
+.vip-summary-priority{display:flex;align-items:center;gap:8px;margin-top:8px}
+.vip-summary-priority label{margin:0;white-space:nowrap;font-size:.85rem}
+.vip-summary-priority select{
+  flex:1;padding:7px 10px;border:1px solid var(--line);border-radius:8px;
+  font-family:inherit;font-size:.88rem;background:#fff;color:var(--ink);
+}
 
 /* Table (admin) */
 .table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius-sm)}
