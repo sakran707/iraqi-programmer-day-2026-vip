@@ -36,10 +36,21 @@ function checkAdmin_(password) {
   return !!real && !!password && password === real;
 }
 
-function pad4_(n) {
-  var s = String(n);
-  while (s.length < 4) s = '0' + s;
-  return s;
+/**
+ * رمز VIP عشوائي (وليس متسلسلاً) حتى لا يكشف ترتيب أو أولوية التسجيل
+ * (مثال: VIP-2026-0001 يوحي بأن صاحبه أول المسجَّلين). يتحقق من عدم
+ * التكرار مقابل الرموز الموجودة فعلاً بالجدول قبل اعتماده.
+ */
+function randomVipCode_(sheet) {
+  var existing = {};
+  readAllRows_(sheet).forEach(function (r) { existing[String(r.vip_code)] = true; });
+  var code, attempts = 0;
+  do {
+    var n = Math.floor(Math.random() * 90000) + 10000; // 5 أرقام عشوائية: 10000–99999
+    code = 'VIP-' + EVENT_YEAR + '-' + n;
+    attempts++;
+  } while (existing[code] && attempts < 50);
+  return code;
 }
 
 function readAllRows_(sheet) {
@@ -80,8 +91,8 @@ function handleAddVip_(body) {
   lock.waitLock(30000);
   try {
     var sheet = getSheet_();
-    var seq = sheet.getLastRow(); // header occupies row 1, so lastRow == next sequence number
-    var vipCode = 'VIP-' + EVENT_YEAR + '-' + pad4_(seq);
+    var seq = sheet.getLastRow(); // header occupies row 1; used only as an internal id, never shown
+    var vipCode = randomVipCode_(sheet);
     var now = new Date().toISOString();
 
     sheet.appendRow([
