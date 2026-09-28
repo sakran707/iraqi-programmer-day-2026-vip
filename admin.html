@@ -102,6 +102,7 @@
       <button type="button" id="exportBtn" class="btn btn-outline btn-sm">⬇ تصدير Excel</button>
       <button type="button" id="printBtn" class="btn btn-outline btn-sm">🖨 تقرير PDF</button>
       <button type="button" id="refreshBtn" class="btn btn-outline btn-sm">تحديث</button>
+      <button type="button" id="regToggleBtn" class="btn btn-danger-outline btn-sm">إيقاف استلام الطلبات</button>
     </div>
 
     <div class="table-wrap">
@@ -134,6 +135,7 @@
   var STATUS_CLASS = { 'مدعو': 'invited', 'تم التأكيد': 'confirmed', 'حضر': 'attended', 'لم يحضر': 'absent' };
   var allRows = [];
   var adminPassword = '';
+  var registrationOpen = true;
 
   var gate = document.getElementById('gate');
   var dashboard = document.getElementById('dashboard');
@@ -169,6 +171,9 @@
       dashboard.classList.remove('hidden');
       renderStats();
       renderTable(document.getElementById('searchInput').value);
+      apiPost({ action: 'registrationStatus' }).then(function (statusRes) {
+        if (statusRes && statusRes.ok) { registrationOpen = statusRes.open; refreshRegistrationToggle(); }
+      });
       if (onDone) onDone();
     }).catch(function () {
       gateError.textContent = 'تعذر الاتصال بالخادم.';
@@ -504,6 +509,34 @@
   document.getElementById('refreshBtn').addEventListener('click', function () { loadList(); });
   document.getElementById('exportBtn').addEventListener('click', exportCsv);
   document.getElementById('printBtn').addEventListener('click', printReport);
+
+  function refreshRegistrationToggle() {
+    var btn = document.getElementById('regToggleBtn');
+    if (registrationOpen) {
+      btn.textContent = 'إيقاف استلام الطلبات';
+      btn.className = 'btn btn-danger-outline btn-sm';
+    } else {
+      btn.textContent = '✓ إعادة فتح استلام الطلبات';
+      btn.className = 'btn btn-primary btn-sm';
+    }
+  }
+
+  document.getElementById('regToggleBtn').addEventListener('click', function () {
+    var btn = document.getElementById('regToggleBtn');
+    var nextOpen = !registrationOpen;
+    var msg = nextOpen
+      ? 'إعادة فتح استلام طلبات تسجيل شخصيات VIP جديدة؟'
+      : 'إيقاف استلام طلبات تسجيل شخصيات VIP جديدة؟ الشخصيات المسجلة مسبقاً لن تتأثر، ويمكن إعادة الفتح بأي وقت.';
+    if (!confirm(msg)) return;
+    btn.disabled = true;
+    apiPost({ action: 'adminSetRegistrationOpen', password: adminPassword, open: nextOpen }).then(function (res) {
+      btn.disabled = false;
+      if (res.ok) {
+        registrationOpen = res.open;
+        refreshRegistrationToggle();
+      }
+    });
+  });
 
   document.getElementById('gateBtn').addEventListener('click', function () {
     adminPassword = document.getElementById('pwInput').value;

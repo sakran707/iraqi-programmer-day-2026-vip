@@ -49,6 +49,28 @@ function checkAdmin_(password) {
 }
 
 /**
+ * مفتاح تشغيل/إيقاف استلام طلبات تسجيل شخصيات VIP جديدة، بدون الحاجة لتعديل
+ * الكود أو إعادة النشر: من محرر Apps Script → Project Settings → Script
+ * Properties، أضف/عدّل خاصية REGISTRATION_OPEN بالقيمة "false" للإيقاف، أو
+ * احذفها (أو اجعلها أي قيمة غير "false") لإعادة الفتح. مفتوح افتراضياً إذا
+ * لم تُعيَّن الخاصية إطلاقاً.
+ */
+function isRegistrationOpen_() {
+  var v = PropertiesService.getScriptProperties().getProperty('REGISTRATION_OPEN');
+  return v !== 'false';
+}
+
+function handleRegistrationStatus_() {
+  return { ok: true, open: isRegistrationOpen_() };
+}
+
+function handleAdminSetRegistrationOpen_(body) {
+  if (!checkAdmin_(body.password)) return { error: 'unauthorized' };
+  PropertiesService.getScriptProperties().setProperty('REGISTRATION_OPEN', body.open ? 'true' : 'false');
+  return { ok: true, open: isRegistrationOpen_() };
+}
+
+/**
  * رمز VIP عشوائي (وليس متسلسلاً) حتى لا يكشف ترتيب أو أولوية التسجيل
  * (مثال: VIP-2026-0001 يوحي بأن صاحبه أول المسجَّلين). يتحقق من عدم
  * التكرار مقابل الرموز الموجودة فعلاً بالجدول قبل اعتماده.
@@ -177,6 +199,7 @@ function handleCheckVip_(body) {
 /* ---------- Public actions ---------- */
 
 function handleAddVip_(body) {
+  if (!isRegistrationOpen_()) return { error: 'registration_closed' };
   var fullName = String(body.full_name || '').trim();
   var workplace = String(body.workplace || '').trim();
   var position = String(body.position || '').trim();
@@ -403,6 +426,7 @@ function doGet(e) {
   try {
     var action = e.parameter.action;
     if (action === 'verify') return jsonOut_(handleVerify_(e.parameter.code || ''));
+    if (action === 'registrationStatus') return jsonOut_(handleRegistrationStatus_());
     return jsonOut_({ error: 'unknown_action' });
   } catch (err) {
     return jsonOut_({ error: String(err) });
@@ -416,10 +440,12 @@ function doPost(e) {
     if (action === 'addVip') return jsonOut_(handleAddVip_(body));
     if (action === 'checkVip') return jsonOut_(handleCheckVip_(body));
     if (action === 'verify') return jsonOut_(handleVerify_(body.code || ''));
+    if (action === 'registrationStatus') return jsonOut_(handleRegistrationStatus_());
     if (action === 'setPriorities') return jsonOut_(handleSetPriorities_(body));
     if (action === 'adminList') return jsonOut_(handleAdminList_(body));
     if (action === 'adminUpdateStatus') return jsonOut_(handleAdminUpdateStatus_(body));
     if (action === 'adminMarkAttendance') return jsonOut_(handleAdminMarkAttendance_(body));
+    if (action === 'adminSetRegistrationOpen') return jsonOut_(handleAdminSetRegistrationOpen_(body));
     if (action === 'adminUpdateVip') return jsonOut_(handleAdminUpdateVip_(body));
     if (action === 'adminDeleteVip') return jsonOut_(handleAdminDeleteVip_(body));
     return jsonOut_({ error: 'unknown_action' });

@@ -22,6 +22,12 @@
 
 <main>
 
+  <!-- Shown instead of the whole registration flow when the syndicate closes new requests -->
+  <section id="registrationClosedNotice" class="card hidden">
+    <h2>التسجيل متوقف مؤقتاً</h2>
+    <p class="muted">تم إيقاف استلام طلبات تسجيل الشخصيات VIP الجديدة حالياً. الشخصيات المسجلة مسبقاً غير متأثرة. للاستفسار تواصل مع النقابة.</p>
+  </section>
+
   <!-- Step 1: entrant identification -->
   <section id="entrantSection" class="card">
     <h2>بيانات مُدخل الاستمارة</h2>
@@ -169,6 +175,23 @@
   var thankYouSection = document.getElementById('thankYouSection');
   var vipError = document.getElementById('vipError');
   var addVipBtn = document.getElementById('addVipBtn');
+
+  /** يخفي استمارة التسجيل بالكامل ويظهر تنويه "التسجيل متوقف" بدلاً منها */
+  function showRegistrationClosed() {
+    Array.prototype.forEach.call(document.querySelectorAll('main > *'), function (el) {
+      if (el.id !== 'registrationClosedNotice') el.classList.add('hidden');
+    });
+    document.getElementById('registrationClosedNotice').classList.remove('hidden');
+  }
+
+  if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.indexOf('PASTE_') !== 0) {
+    fetch(APPS_SCRIPT_URL + (APPS_SCRIPT_URL.indexOf('?') === -1 ? '?' : '&') + 'action=registrationStatus')
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (res && res.ok && res.open === false) showRegistrationClosed();
+      })
+      .catch(function () { /* فشل الفحص لا يمنع التسجيل - الخادم نفسه يرفض الإضافة إذا كان مغلقاً فعلاً */ });
+  }
 
   function renderSuggestions(matches) {
     if (matches.length === 0) {
@@ -534,6 +557,7 @@
       addVipBtn.disabled = false;
       addVipBtn.textContent = 'إضافة الشخصية';
       if (!res.ok) {
+        if (res.error === 'registration_closed') { showRegistrationClosed(); return; }
         vipError.textContent = 'تعذر حفظ البيانات، حاول مرة أخرى.';
         vipError.classList.remove('hidden');
         return;
