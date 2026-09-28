@@ -16,7 +16,7 @@ var EVENT_YEAR = '2026';
 var HEADERS = [
   'vip_id', 'vip_code', 'full_name', 'workplace', 'position', 'contact_method',
   'status', 'priority', 'entered_by_name', 'entered_by_position', 'created_at', 'updated_at', 'attendance_time',
-  'needs_letter'
+  'needs_letter', 'attended_day1', 'attended_day1_time', 'attended_day2', 'attended_day2_time'
 ];
 var VALID_STATUSES = ['مدعو', 'تم التأكيد', 'حضر', 'لم يحضر'];
 var VALID_PRIORITIES = ['عالية', 'متوسطة', 'عادية'];
@@ -276,10 +276,47 @@ function handleAdminList_(body) {
       entered_by_position: r.entered_by_position,
       created_at: r.created_at,
       updated_at: r.updated_at,
-      attendance_time: r.attendance_time
+      attendance_time: r.attendance_time,
+      attended_day1: r.attended_day1 === 'نعم' ? 'نعم' : 'لا',
+      attended_day1_time: r.attended_day1_time || '',
+      attended_day2: r.attended_day2 === 'نعم' ? 'نعم' : 'لا',
+      attended_day2_time: r.attended_day2_time || ''
     };
   });
   return { ok: true, rows: rows };
+}
+
+/**
+ * يستخدمها الإدمن لتأكيد أو إلغاء حضور شخصية VIP ليوم معيّن من يومي الفعالية
+ * (9-10 أو 10-10) بشكل مستقل عن الحالة العامة (status). مصممة للاستخدام
+ * السريع عند باب الفعالية.
+ */
+function handleAdminMarkAttendance_(body) {
+  if (!checkAdmin_(body.password)) return { error: 'unauthorized' };
+  var code = String(body.vip_code || '').trim();
+  var day = String(body.day || '').trim();
+  if (day !== '1' && day !== '2') return { error: 'invalid_day' };
+  var attended = !!body.attended;
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getSheet_();
+    var row = findRowByCode_(sheet, code);
+    if (!row) return { error: 'not_found' };
+
+    var now = new Date().toISOString();
+    var flagCol = HEADERS.indexOf('attended_day' + day) + 1;
+    var timeCol = HEADERS.indexOf('attended_day' + day + '_time') + 1;
+    var updatedCol = HEADERS.indexOf('updated_at') + 1;
+
+    sheet.getRange(row._row, flagCol).setValue(attended ? 'نعم' : 'لا');
+    sheet.getRange(row._row, timeCol).setValue(attended ? now : '');
+    sheet.getRange(row._row, updatedCol).setValue(now);
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function handleAdminUpdateStatus_(body) {
@@ -382,6 +419,7 @@ function doPost(e) {
     if (action === 'setPriorities') return jsonOut_(handleSetPriorities_(body));
     if (action === 'adminList') return jsonOut_(handleAdminList_(body));
     if (action === 'adminUpdateStatus') return jsonOut_(handleAdminUpdateStatus_(body));
+    if (action === 'adminMarkAttendance') return jsonOut_(handleAdminMarkAttendance_(body));
     if (action === 'adminUpdateVip') return jsonOut_(handleAdminUpdateVip_(body));
     if (action === 'adminDeleteVip') return jsonOut_(handleAdminDeleteVip_(body));
     return jsonOut_({ error: 'unknown_action' });

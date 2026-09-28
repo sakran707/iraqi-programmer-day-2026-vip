@@ -11,6 +11,8 @@
 <link rel="stylesheet" href="assets/shared.css">
 <style>
   main.admin{max-width:960px}
+  main.admin .stats-grid{grid-template-columns:repeat(2,1fr)}
+  @media(min-width:480px){main.admin .stats-grid{grid-template-columns:repeat(3,1fr)}}
   .toolbar{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
   .toolbar input{flex:1;min-width:180px}
   .actions-cell{display:flex;gap:6px}
@@ -44,6 +46,7 @@
   #printReport .p-group-head span{font-weight:700;color:var(--p-orange)}
   #printReport .p-group table{margin-top:0}
   #printReport .p-letter-flag{font-size:.72rem;font-weight:800;color:var(--p-orange);white-space:nowrap}
+  #printReport .p-group table .p-day-col,#printReport .p-group table th:nth-child(5),#printReport .p-group table th:nth-child(6){width:9%;text-align:center}
 
   @media print{
     body.printing > *:not(#printReport){display:none !important}
@@ -80,6 +83,8 @@
       <div class="stat-tile"><div class="n num" id="statConfirmed">0</div><div class="l">تم التأكيد</div></div>
       <div class="stat-tile"><div class="n num" id="statAttended">0</div><div class="l">حضر</div></div>
       <div class="stat-tile"><div class="n num" id="statAbsent">0</div><div class="l">لم يحضر</div></div>
+      <div class="stat-tile"><div class="n num" id="statDay1">0</div><div class="l">حضور يوم 9-10</div></div>
+      <div class="stat-tile"><div class="n num" id="statDay2">0</div><div class="l">حضور يوم 10-10</div></div>
     </div>
 
     <div class="card" style="margin-bottom:16px">
@@ -104,7 +109,8 @@
         <thead>
           <tr>
             <th>رقم VIP</th><th>اسم الشخصية</th><th>مكان العمل</th><th>المنصب</th>
-            <th>أضيفت بواسطة</th><th>الأولوية</th><th>📄 كتاب</th><th>الحالة</th><th>إجراءات</th>
+            <th>أضيفت بواسطة</th><th>الأولوية</th><th>📄 كتاب</th><th>الحالة</th>
+            <th>حضور 9-10</th><th>حضور 10-10</th><th>إجراءات</th>
           </tr>
         </thead>
         <tbody id="rows"></tbody>
@@ -175,6 +181,8 @@
     document.getElementById('statConfirmed').textContent = allRows.filter(function (r) { return r.status === 'تم التأكيد'; }).length;
     document.getElementById('statAttended').textContent = allRows.filter(function (r) { return r.status === 'حضر'; }).length;
     document.getElementById('statAbsent').textContent = allRows.filter(function (r) { return r.status === 'لم يحضر'; }).length;
+    document.getElementById('statDay1').textContent = allRows.filter(function (r) { return r.attended_day1 === 'نعم'; }).length;
+    document.getElementById('statDay2').textContent = allRows.filter(function (r) { return r.attended_day2 === 'نعم'; }).length;
     renderEntrantBreakdown();
   }
 
@@ -225,7 +233,8 @@
     var rows = allRows.filter(function (r) { return matches(r, document.getElementById('searchInput').value); });
     var headers = [
       'رقم VIP', 'اسم الشخصية', 'مكان العمل', 'المنصب', 'طريقة التواصل',
-      'أضيفت بواسطة', 'منصب المُدخل', 'الأولوية', 'يحتاج كتاب رسمي', 'الحالة', 'تاريخ التسجيل', 'وقت الحضور'
+      'أضيفت بواسطة', 'منصب المُدخل', 'الأولوية', 'يحتاج كتاب رسمي', 'الحالة', 'تاريخ التسجيل', 'وقت الحضور',
+      'حضور يوم 9-10', 'وقت حضور يوم 9-10', 'حضور يوم 10-10', 'وقت حضور يوم 10-10'
     ];
     var lines = [headers.map(csvField).join(',')];
     rows.forEach(function (r) {
@@ -233,7 +242,9 @@
         r.vip_code, r.full_name, r.workplace, r.position || '—', r.contact_method || '—',
         r.entered_by_name, r.entered_by_position, r.priority || 'عادية',
         r.needs_letter === 'نعم' ? 'نعم' : 'لا', r.status,
-        formatDateForExport(r.created_at), formatDateForExport(r.attendance_time)
+        formatDateForExport(r.created_at), formatDateForExport(r.attendance_time),
+        r.attended_day1 === 'نعم' ? 'نعم' : 'لا', formatDateForExport(r.attended_day1_time),
+        r.attended_day2 === 'نعم' ? 'نعم' : 'لا', formatDateForExport(r.attended_day2_time)
       ].map(csvField).join(','));
     });
 
@@ -271,12 +282,14 @@
           '<td>' + r.full_name + letterFlag + '</td>' +
           '<td>' + r.workplace + '</td>' +
           '<td>' + (r.position || '—') + '</td>' +
+          '<td class="p-day-col">' + (r.attended_day1 === 'نعم' ? '✓' : '—') + '</td>' +
+          '<td class="p-day-col">' + (r.attended_day2 === 'نعم' ? '✓' : '—') + '</td>' +
         '</tr>';
       }).join('');
       return '<div class="p-group">' +
         '<div class="p-group-head">' + g.name + ' — ' + g.position + ' <span>(' + g.items.length + ' شخصية)</span></div>' +
         '<table>' +
-          '<thead><tr><th>رقم VIP</th><th>الاسم</th><th>مكان العمل</th><th>المنصب</th></tr></thead>' +
+          '<thead><tr><th>رقم VIP</th><th>الاسم</th><th>مكان العمل</th><th>المنصب</th><th>9-10</th><th>10-10</th></tr></thead>' +
           '<tbody>' + itemRows + '</tbody>' +
         '</table>' +
       '</div>';
@@ -301,6 +314,8 @@
         '<div>تم التأكيد: <b>' + allRows.filter(function (r) { return r.status === 'تم التأكيد'; }).length + '</b></div>' +
         '<div>حضر: <b>' + allRows.filter(function (r) { return r.status === 'حضر'; }).length + '</b></div>' +
         '<div>لم يحضر: <b>' + allRows.filter(function (r) { return r.status === 'لم يحضر'; }).length + '</b></div>' +
+        '<div>حضور 9-10: <b>' + allRows.filter(function (r) { return r.attended_day1 === 'نعم'; }).length + '</b></div>' +
+        '<div>حضور 10-10: <b>' + allRows.filter(function (r) { return r.attended_day2 === 'نعم'; }).length + '</b></div>' +
       '</div>' +
       '<h2 class="p-subhead" style="margin-top:0">عدد الشخصيات المضافة حسب كل عضو</h2>' +
       '<table>' +
@@ -331,6 +346,13 @@
     return needsLetter === 'نعم' ? '<span class="badge confirmed">نعم</span>' : '—';
   }
 
+  function attendanceBtn(r, day) {
+    var attended = (day === 1 ? r.attended_day1 : r.attended_day2) === 'نعم';
+    return '<button class="btn btn-sm ' + (attended ? 'btn-primary' : 'btn-outline') +
+      '" data-action="toggle-day' + day + '" data-code="' + r.vip_code + '">' +
+      (attended ? '✓ حضر' : 'تحديد حضور') + '</button>';
+  }
+
   function renderTable(query) {
     var rows = allRows.filter(function (r) { return matches(r, query); });
     document.getElementById('rows').innerHTML = rows.map(function (r) {
@@ -343,6 +365,8 @@
         '<td>' + priorityBadge(r.priority) + '</td>' +
         '<td>' + needsLetterBadge(r.needs_letter) + '</td>' +
         '<td class="status-cell" data-code="' + r.vip_code + '"></td>' +
+        '<td>' + attendanceBtn(r, 1) + '</td>' +
+        '<td>' + attendanceBtn(r, 2) + '</td>' +
         '<td class="actions-cell">' +
           '<button class="btn btn-outline btn-sm" data-action="detail" data-code="' + r.vip_code + '">تفاصيل</button>' +
           '<button class="btn btn-outline btn-sm" data-action="edit" data-code="' + r.vip_code + '">تعديل</button>' +
@@ -387,6 +411,8 @@
       '<div class="detail-row"><span>يحتاج كتاب رسمي بتوقيع النقيب</span><b>' + (r.needs_letter === 'نعم' ? 'نعم' : 'لا') + '</b></div>' +
       '<div class="detail-row"><span>الحالة</span><b>' + r.status + '</b></div>' +
       '<div class="detail-row"><span>وقت الحضور</span><b>' + (r.attendance_time || '—') + '</b></div>' +
+      '<div class="detail-row"><span>حضور يوم 9-10</span><b>' + (r.attended_day1 === 'نعم' ? '✓ حضر — ' + r.attended_day1_time : 'لم يحضر بعد') + '</b></div>' +
+      '<div class="detail-row"><span>حضور يوم 10-10</span><b>' + (r.attended_day2 === 'نعم' ? '✓ حضر — ' + r.attended_day2_time : 'لم يحضر بعد') + '</b></div>' +
       '<div class="qr-wrap" style="margin:16px auto"><img src="' + qr + '" alt="QR"></div>' +
       '<button type="button" class="btn btn-outline" id="closeDetailBtn">إغلاق</button>' +
       '</div></div>';
@@ -452,6 +478,22 @@
       if (!confirm('هل أنت متأكد من حذف هذه الشخصية؟ لا يمكن التراجع.')) return;
       apiPost({ action: 'adminDeleteVip', password: adminPassword, vip_code: code }).then(function (res) {
         if (res.ok) loadList();
+      });
+    } else if (action === 'toggle-day1' || action === 'toggle-day2') {
+      var day = action === 'toggle-day1' ? 1 : 2;
+      var r = findRow(code);
+      if (!r) return;
+      var field = day === 1 ? 'attended_day1' : 'attended_day2';
+      var newAttended = r[field] !== 'نعم';
+      btn.disabled = true;
+      apiPost({ action: 'adminMarkAttendance', password: adminPassword, vip_code: code, day: String(day), attended: newAttended }).then(function (res) {
+        btn.disabled = false;
+        if (res.ok) {
+          r[field] = newAttended ? 'نعم' : 'لا';
+          r[field + '_time'] = newAttended ? new Date().toISOString() : '';
+          renderStats();
+          renderTable(document.getElementById('searchInput').value);
+        }
       });
     }
   });
