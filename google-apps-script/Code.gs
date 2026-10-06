@@ -112,6 +112,47 @@ function handleAdminSetAllowedEntrants_(body) {
 }
 
 /**
+ * حد أقصى مخصص لعدد الشخصيات اللي يقدر كل عضو "يُصدرلهم دعوة" (مو عدد الإضافة
+ * نفسه)، يطغى على MAX_SELECTED_PER_ENTRANT الافتراضي لذلك العضو تحديداً.
+ * تُخزَّن كـ JSON object {اسم العضو: رقم} بخاصية ENTRANT_LIMITS. عضو غير موجود
+ * بالخريطة = على الحد الافتراضي (10).
+ */
+function getEntrantLimits_() {
+  var raw = PropertiesService.getScriptProperties().getProperty('ENTRANT_LIMITS');
+  if (!raw) return {};
+  try {
+    var obj = JSON.parse(raw);
+    return (obj && typeof obj === 'object' && !Array.isArray(obj)) ? obj : {};
+  } catch (e) {
+    return {};
+  }
+}
+
+function getEntrantLimit_(name) {
+  var limits = getEntrantLimits_();
+  var n = Number(limits[name]);
+  return (n > 0) ? n : MAX_SELECTED_PER_ENTRANT;
+}
+
+function handleAdminSetEntrantLimits_(body) {
+  if (!checkAdmin_(body.password)) return { error: 'unauthorized' };
+  var limits = (body.limits && typeof body.limits === 'object' && !Array.isArray(body.limits)) ? body.limits : {};
+  var clean = {};
+  Object.keys(limits).forEach(function (name) {
+    var n = Number(limits[name]);
+    // تجاهل القيم اللي تساوي الافتراضي أصلاً - ما داعي نخزنها
+    if (n > 0 && n !== MAX_SELECTED_PER_ENTRANT) clean[name] = n;
+  });
+  var props = PropertiesService.getScriptProperties();
+  if (Object.keys(clean).length === 0) {
+    props.deleteProperty('ENTRANT_LIMITS');
+  } else {
+    props.setProperty('ENTRANT_LIMITS', JSON.stringify(clean));
+  }
+  return { ok: true, entrant_limits: getEntrantLimits_() };
+}
+
+/**
  * رمز VIP عشوائي (وليس متسلسلاً) حتى لا يكشف ترتيب أو أولوية التسجيل
  * (مثال: VIP-2026-0001 يوحي بأن صاحبه أول المسجَّلين). يتحقق من عدم
  * التكرار مقابل الرموز الموجودة فعلاً بالجدول قبل اعتماده.
@@ -290,7 +331,7 @@ function handleMyVips_(body) {
     };
   });
   var selectedCount = vips.filter(function (v) { return v.selected; }).length;
-  return { ok: true, vips: vips, selected_count: selectedCount, max_selected: MAX_SELECTED_PER_ENTRANT };
+  return { ok: true, vips: vips, selected_count: selectedCount, max_selected: getEntrantLimit_(enteredByName) };
 }
 
 /**
@@ -312,7 +353,7 @@ function handleSetSelectedForInvitation_(body) {
     rows.forEach(function (r) { ownCodes[r.vip_code] = true; });
     var validSelected = selectedCodes.filter(function (c) { return ownCodes[c]; });
 
-    var required = Math.min(MAX_SELECTED_PER_ENTRANT, rows.length);
+    var required = Math.min(getEntrantLimit_(enteredByName), rows.length);
     if (validSelected.length !== required) return { error: 'must_select_exact_count', required: required };
 
     var selectedSet = {};
@@ -408,7 +449,7 @@ function handleAdminList_(body) {
       selected_for_invitation: isSelectedForInvitation_(r) ? 'نعم' : 'لا'
     };
   });
-  return { ok: true, rows: rows };
+  return { ok: true, rows: rows, entrant_limits: getEntrantLimits_() };
 }
 
 /**
@@ -549,6 +590,7 @@ function doPost(e) {
     if (action === 'adminMarkAttendance') return jsonOut_(handleAdminMarkAttendance_(body));
     if (action === 'adminSetRegistrationOpen') return jsonOut_(handleAdminSetRegistrationOpen_(body));
     if (action === 'adminSetAllowedEntrants') return jsonOut_(handleAdminSetAllowedEntrants_(body));
+    if (action === 'adminSetEntrantLimits') return jsonOut_(handleAdminSetEntrantLimits_(body));
     if (action === 'myVips') return jsonOut_(handleMyVips_(body));
     if (action === 'setSelectedForInvitation') return jsonOut_(handleSetSelectedForInvitation_(body));
     if (action === 'adminUpdateVip') return jsonOut_(handleAdminUpdateVip_(body));

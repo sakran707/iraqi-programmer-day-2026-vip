@@ -106,6 +106,7 @@
       <button type="button" id="refreshBtn" class="btn btn-outline btn-sm">تحديث</button>
       <button type="button" id="regToggleBtn" class="btn btn-danger-outline btn-sm">إيقاف استلام الطلبات</button>
       <button type="button" id="manageEntrantsBtn" class="btn btn-outline btn-sm">إدارة صلاحية الإضافة</button>
+      <button type="button" id="manageLimitsBtn" class="btn btn-outline btn-sm">الحد الأقصى لكل عضو</button>
     </div>
 
     <div class="table-wrap">
@@ -141,6 +142,7 @@
   var adminPassword = '';
   var registrationOpen = true;
   var allowedEntrants = null; // null = كل الأعضاء الـ23 مسموح لهم
+  var entrantLimits = {}; // اسم -> حد أقصى مخصص لعدد المُختارين للدعوة؛ غير موجود = الحد الافتراضي (10)
 
   var gate = document.getElementById('gate');
   var dashboard = document.getElementById('dashboard');
@@ -172,6 +174,7 @@
         return;
       }
       allRows = res.rows || [];
+      entrantLimits = res.entrant_limits || {};
       gate.classList.add('hidden');
       dashboard.classList.remove('hidden');
       renderStats();
@@ -638,7 +641,64 @@
     });
   }
 
+  /** يفتح نافذة لتحديد حد أقصى مخصص لكل عضو من الـ23 لعدد الشخصيات اللي يصدرلها دعوة فعلية
+   * (شاشة "اختر N فقط" بالاستمارة تستخدم هذا الرقم تلقائياً بدل الافتراضي 10) */
+  function openEntrantLimitsManager() {
+    var counts = {};
+    computeEntrantBreakdown().forEach(function (b) { counts[b.name] = b.count; });
+    var rowsHtml = MEMBERS.map(function (m) {
+      var current = entrantLimits[m.name] || '';
+      var count = counts[m.name] || 0;
+      return '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid #E3E6EA">' +
+        '<div style="flex:1"><b>' + m.name + '</b><br><span class="muted" style="font-size:.85rem">' + m.position + ' — لديه حالياً: ' + count + '</span></div>' +
+        '<input type="number" min="1" class="entrant-limit-input" data-name="' + m.name.replace(/"/g, '&quot;') + '" placeholder="10 (افتراضي)" value="' + current + '" style="width:90px">' +
+        '</div>';
+    }).join('');
+
+    modalHost.innerHTML =
+      '<div class="modal-backdrop" id="backdrop"><div class="modal">' +
+      '<h3>الحد الأقصى لعدد الشخصيات لكل عضو</h3>' +
+      '<p class="muted" style="margin-bottom:12px">اترك الحقل فاضي = الحد الافتراضي (10). لما عضو يتجاوز حده الفعلي، تظهرله شاشة "اختر N فقط" تلقائياً بالاستمارة ليحدد أي شخصياته تُصدر لهم دعوة.</p>' +
+      '<div class="stack" style="max-height:55vh;overflow-y:auto">' + rowsHtml + '</div>' +
+      '<div id="limitsError" class="muted hidden" style="color:var(--fail);margin-top:8px"></div>' +
+      '<div class="row-2" style="margin-top:14px">' +
+      '<button type="button" class="btn btn-outline" id="cancelLimitsBtn">إلغاء</button>' +
+      '<button type="button" class="btn btn-primary" id="saveLimitsBtn">حفظ</button>' +
+      '</div></div></div>';
+
+    document.getElementById('cancelLimitsBtn').addEventListener('click', closeModal);
+    document.getElementById('backdrop').addEventListener('click', function (e) { if (e.target.id === 'backdrop') closeModal(); });
+    document.getElementById('saveLimitsBtn').addEventListener('click', function () {
+      var limits = {};
+      document.querySelectorAll('.entrant-limit-input').forEach(function (inp) {
+        var v = Number(inp.value);
+        if (v > 0) limits[inp.getAttribute('data-name')] = v;
+      });
+      var btn = document.getElementById('saveLimitsBtn');
+      btn.disabled = true;
+      apiPost({ action: 'adminSetEntrantLimits', password: adminPassword, limits: limits }).then(function (res) {
+        btn.disabled = false;
+        if (res.ok) {
+          entrantLimits = res.entrant_limits || {};
+          closeModal();
+        } else {
+          var err = document.getElementById('limitsError');
+          console.error('adminSetEntrantLimits failed:', res);
+          err.textContent = 'تعذر الحفظ. السبب الأرجح: نسخة Apps Script المنشورة قديمة - يلزم إعادة نشر آخر Code.gs.';
+          err.classList.remove('hidden');
+        }
+      }).catch(function (err) {
+        btn.disabled = false;
+        console.error('adminSetEntrantLimits network error:', err);
+        var errBox = document.getElementById('limitsError');
+        errBox.textContent = 'تعذر الاتصال بالخادم، حاول مرة أخرى.';
+        errBox.classList.remove('hidden');
+      });
+    });
+  }
+
   document.getElementById('manageEntrantsBtn').addEventListener('click', openEntrantsManager);
+  document.getElementById('manageLimitsBtn').addEventListener('click', openEntrantLimitsManager);
 
   document.getElementById('gateBtn').addEventListener('click', function () {
     adminPassword = document.getElementById('pwInput').value;
