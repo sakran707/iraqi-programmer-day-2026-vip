@@ -80,6 +80,7 @@
   <section id="dashboard" class="hidden">
     <div class="stats-grid">
       <div class="stat-tile"><div class="n num" id="statTotal">0</div><div class="l">إجمالي الشخصيات VIP</div></div>
+      <div class="stat-tile"><div class="n num" id="statSelected">0</div><div class="l">عدد الدعوات الفعلية (بعد الترشيح)</div></div>
       <div class="stat-tile"><div class="n num" id="statConfirmed">0</div><div class="l">تم التأكيد</div></div>
       <div class="stat-tile"><div class="n num" id="statAttended">0</div><div class="l">حضر</div></div>
       <div class="stat-tile"><div class="n num" id="statAbsent">0</div><div class="l">لم يحضر</div></div>
@@ -195,6 +196,7 @@
 
   function renderStats() {
     document.getElementById('statTotal').textContent = allRows.length;
+    document.getElementById('statSelected').textContent = allRows.filter(isSelectedForInvitation).length;
     document.getElementById('statConfirmed').textContent = allRows.filter(function (r) { return r.status === 'تم التأكيد'; }).length;
     document.getElementById('statAttended').textContent = allRows.filter(function (r) { return r.status === 'حضر'; }).length;
     document.getElementById('statAbsent').textContent = allRows.filter(function (r) { return r.status === 'لم يحضر'; }).length;
