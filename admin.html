@@ -534,7 +534,14 @@
       if (res.ok) {
         registrationOpen = res.open;
         refreshRegistrationToggle();
+      } else {
+        console.error('adminSetRegistrationOpen failed:', res);
+        alert('تعذر تغيير حالة استلام الطلبات. السبب الأرجح: نسخة Apps Script المنشورة قديمة ولا تدعم هذه الخاصية بعد - يلزم إعادة نشر آخر Code.gs (Deploy → Manage deployments → New version).');
       }
+    }).catch(function (err) {
+      btn.disabled = false;
+      console.error('adminSetRegistrationOpen network error:', err);
+      alert('تعذر الاتصال بالخادم، حاول مرة أخرى.');
     });
   });
 
