@@ -92,7 +92,7 @@
       <h2>عدد الشخصيات المضافة حسب كل عضو</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>اسم العضو</th><th>المنصب</th><th>عدد الشخصيات المضافة</th></tr></thead>
+          <thead><tr><th>اسم العضو</th><th>المنصب</th><th>عدد الشخصيات المضافة</th><th>العدد الفعلي بعد الترشيح</th></tr></thead>
           <tbody id="entrantBreakdownRows"></tbody>
         </table>
       </div>
@@ -219,14 +219,19 @@
 
   function computeEntrantBreakdown(rowsList) {
     return groupByEntrant(rowsList || allRows).map(function (g) {
-      return { name: g.name, position: g.position, count: g.items.length };
+      return {
+        name: g.name,
+        position: g.position,
+        count: g.items.length,
+        selectedCount: g.items.filter(isSelectedForInvitation).length
+      };
     });
   }
 
   function renderEntrantBreakdown() {
     var breakdown = computeEntrantBreakdown();
     document.getElementById('entrantBreakdownRows').innerHTML = breakdown.map(function (b) {
-      return '<tr><td>' + b.name + '</td><td>' + b.position + '</td><td class="num">' + b.count + '</td></tr>';
+      return '<tr><td>' + b.name + '</td><td>' + b.position + '</td><td class="num">' + b.count + '</td><td class="num">' + b.selectedCount + '</td></tr>';
     }).join('');
   }
 
