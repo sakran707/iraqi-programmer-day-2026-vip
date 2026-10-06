@@ -49,6 +49,15 @@
     </div>
   </section>
 
+  <!-- Shows the entrant their own previously-registered VIPs, right after they identify themselves -->
+  <section id="myVipsSection" class="card hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+      <div id="myVipsSummary" style="font-weight:700"></div>
+      <button type="button" id="myVipsToggleBtn" class="btn btn-outline btn-sm">عرض القائمة</button>
+    </div>
+    <div id="myVipsList" class="hidden" style="margin-top:12px"></div>
+  </section>
+
   <!-- Shown after a specific entrant selects themselves, if that entrant isn't currently allowed to add more -->
   <section id="entrantBlockedNotice" class="card hidden">
     <h2>شكراً لمساهمتك 🙏</h2>
@@ -220,6 +229,40 @@
     }).then(function (r) { return r.json(); });
   }
 
+  /** يعرض للعضو قائمة الشخصيات اللي سجلها هو بنفسه سابقاً (كل الجلسات)، مباشرة بعد ما يحدد اسمه.
+   * يختفي القسم كلياً إذا ماكو شخصيات مسجلة أصلاً (عضو جديد). */
+  function renderMyVipsSection(res) {
+    var section = document.getElementById('myVipsSection');
+    if (!res || !res.ok || !res.vips || res.vips.length === 0) {
+      section.classList.add('hidden');
+      return;
+    }
+    var waitlisted = res.vips.length - res.selected_count;
+    document.getElementById('myVipsSummary').textContent =
+      'الشخصيات اللي سجلتها: ' + res.vips.length +
+      (waitlisted > 0 ? ' (' + res.selected_count + ' مُختارة للدعوة، ' + waitlisted + ' بقائمة الاحتياط)' : '');
+    document.getElementById('myVipsList').innerHTML = res.vips.map(function (v) {
+      var badge = v.selected
+        ? '<span class="badge confirmed">✓ مُختار</span>'
+        : '<span class="badge absent">قائمة احتياط</span>';
+      return '<div style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #E3E6EA">' +
+        '<div><b>' + v.full_name + '</b><br><span class="muted" style="font-size:.85rem">' + (v.workplace || '') + '</span></div>' +
+        badge +
+        '</div>';
+    }).join('');
+    document.getElementById('myVipsList').classList.add('hidden');
+    document.getElementById('myVipsToggleBtn').textContent = 'عرض القائمة';
+    section.classList.remove('hidden');
+  }
+
+  document.getElementById('myVipsToggleBtn').addEventListener('click', function () {
+    var list = document.getElementById('myVipsList');
+    var btn = document.getElementById('myVipsToggleBtn');
+    var showing = !list.classList.contains('hidden');
+    list.classList.toggle('hidden');
+    btn.textContent = showing ? 'عرض القائمة' : 'إخفاء القائمة';
+  });
+
   /** يظهر استمارة إضافة الشخصيات العادية بعد التأكد من عدم الحظر وعدم تجاوز الحد */
   function showAddForm() {
     document.getElementById('postEntrantNotices').classList.add('hidden');
@@ -273,6 +316,8 @@
             lastMyVipsResult = null; // استُهلكت الحالة القديمة؛ تحل عند أول إضافة لاحقة
             document.getElementById('selectionLimitSection').classList.add('hidden');
             if (isBlocked) { showEntrantBlocked(); } else { showAddForm(); }
+            apiPost({ action: 'myVips', entered_by_name: selectedEntrant.name })
+              .then(renderMyVipsSection).catch(function () {});
           } else {
             saveBtn.disabled = false;
             errEl.textContent = 'تعذر الحفظ، حاول مرة أخرى.';
@@ -335,6 +380,7 @@
     suggestions.classList.add('hidden');
     document.getElementById('entrantBlockedNotice').classList.add('hidden');
     document.getElementById('selectionLimitSection').classList.add('hidden');
+    document.getElementById('myVipsSection').classList.add('hidden');
 
     var isBlocked = !!(allowedEntrants && allowedEntrants.indexOf(member.name) === -1);
 
@@ -345,9 +391,13 @@
 
     if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.indexOf('PASTE_') !== 0) {
       apiPost({ action: 'myVips', entered_by_name: member.name }).then(function (res) {
-        if (res && res.ok && selectedEntrant === member && res.selected_count > res.max_selected) {
+        if (selectedEntrant !== member) return;
+        if (res && res.ok && res.selected_count > res.max_selected) {
           showSelectionLimit(res.vips, Math.min(res.max_selected, res.vips.length), isBlocked);
+          return;
         }
+        // عرض قائمة الشخصيات اللي سجلها هذا العضو مسبقاً - بس إذا ما كان فوق الحد (الشاشة أعلاه تعرضها تفاعلياً)
+        renderMyVipsSection(res);
       }).catch(function () { /* فشل الفحص لا يمنع التسجيل - مجرد أداة مساعدة */ });
     }
   }
@@ -363,6 +413,7 @@
     document.getElementById('checkResults').innerHTML = '';
     document.getElementById('entrantBlockedNotice').classList.add('hidden');
     document.getElementById('selectionLimitSection').classList.add('hidden');
+    document.getElementById('myVipsSection').classList.add('hidden');
     vipSection.classList.add('hidden');
     successSection.classList.add('hidden');
   }
@@ -709,6 +760,7 @@
       // إعادة فحص الحد بعد كل إضافة - حتى لو العضو ضاف أكثر من واحدة بنفس الجلسة بدون إعادة اختيار نفسه
       apiPost({ action: 'myVips', entered_by_name: selectedEntrant.name }).then(function (myVipsRes) {
         lastMyVipsResult = (myVipsRes && myVipsRes.ok) ? myVipsRes : null;
+        renderMyVipsSection(myVipsRes);
       }).catch(function () { lastMyVipsResult = null; });
     }).catch(function () {
       addVipBtn.disabled = false;
