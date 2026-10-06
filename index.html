@@ -56,6 +56,16 @@
     <button type="button" id="blockedChangeEntrantBtn" class="btn btn-outline" style="margin-top:10px">تسجيل باسم عضو آخر</button>
   </section>
 
+  <!-- Shown instead of the normal flow when an entrant exceeds the 10-invitation cap and must pick exactly 10 -->
+  <section id="selectionLimitSection" class="card hidden">
+    <h2>اختر 10 شخصيات فقط لإصدار الدعوة لهم</h2>
+    <p class="muted" style="margin-bottom:12px">عدد الشخصيات اللي أضفتها تجاوز الحد المسموح (10). اختر بالضبط 10 شخصيات تصدر لهم الدعوة — الباقي يبقى محفوظ بالنظام كقائمة احتياط.</p>
+    <div id="selectionLimitCount" class="muted" style="margin-bottom:10px;font-weight:700"></div>
+    <div id="selectionLimitList" class="stack"></div>
+    <div id="selectionLimitError" class="muted hidden" style="color:var(--fail);margin-top:10px"></div>
+    <button type="button" id="saveSelectionBtn" class="btn btn-primary" style="margin-top:14px" disabled>حفظ الاختيار</button>
+  </section>
+
   <div id="postEntrantNotices">
     <div class="notice notice-restrict">
       <b>تنويه:</b>
@@ -184,6 +194,7 @@
   var addVipBtn = document.getElementById('addVipBtn');
 
   var allowedEntrants = null; // null = الكل مسموح (لا قيود)
+  var lastMyVipsResult = null; // آخر نتيجة فحص myVips بعد إضافة ناجحة، لمنع تجاوز حد الـ10 عبر "إضافة شخصية أخرى" بنفس الجلسة
 
   /** يخفي استمارة التسجيل بالكامل ويظهر تنويه "التسجيل متوقف" بدلاً منها */
   function showRegistrationClosed() {
@@ -199,6 +210,75 @@
     document.getElementById('checkSection').classList.add('hidden');
     vipSection.classList.add('hidden');
     document.getElementById('entrantBlockedNotice').classList.remove('hidden');
+  }
+
+  function apiPost(payload) {
+    return fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); });
+  }
+
+  /** يعرض شاشة اختيار 10 شخصيات بالضبط لعضو تجاوز الحد، ويخفي باقي استمارة التسجيل لحد ما يحل الموضوع */
+  function showSelectionLimit(vips, required) {
+    document.getElementById('postEntrantNotices').classList.add('hidden');
+    document.getElementById('checkSection').classList.add('hidden');
+    document.getElementById('entrantBlockedNotice').classList.add('hidden');
+    vipSection.classList.add('hidden');
+
+    var listEl = document.getElementById('selectionLimitList');
+    var countEl = document.getElementById('selectionLimitCount');
+    var errEl = document.getElementById('selectionLimitError');
+    var saveBtn = document.getElementById('saveSelectionBtn');
+    errEl.classList.add('hidden');
+
+    function updateCount() {
+      var checked = listEl.querySelectorAll('input:checked').length;
+      countEl.textContent = 'محدد: ' + checked + ' من ' + required + ' مطلوبة';
+      saveBtn.disabled = (checked !== required);
+    }
+
+    listEl.innerHTML = vips.map(function (v) {
+      return '<label class="checkbox-label" style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">' +
+        '<input type="checkbox" class="selection-cb" data-code="' + v.vip_code + '"' + (v.selected ? ' checked' : '') + '>' +
+        '<span><b>' + v.full_name + '</b><br><span class="muted" style="font-size:.85rem">' + (v.workplace || '') + '</span></span>' +
+        '</label>';
+    }).join('');
+
+    listEl.querySelectorAll('.selection-cb').forEach(function (cb) {
+      cb.addEventListener('change', function () {
+        var checked = listEl.querySelectorAll('input:checked');
+        if (checked.length > required) { cb.checked = false; }
+        updateCount();
+      });
+    });
+    updateCount();
+
+    saveBtn.onclick = function () {
+      var codes = Array.prototype.map.call(listEl.querySelectorAll('input:checked'), function (cb) { return cb.getAttribute('data-code'); });
+      saveBtn.disabled = true;
+      apiPost({ action: 'setSelectedForInvitation', entered_by_name: selectedEntrant.name, selected_codes: codes })
+        .then(function (res) {
+          if (res.ok) {
+            lastMyVipsResult = null; // استُهلكت الحالة القديمة؛ تحل عند أول إضافة لاحقة
+            document.getElementById('selectionLimitSection').classList.add('hidden');
+            document.getElementById('postEntrantNotices').classList.add('hidden');
+            document.getElementById('checkSection').classList.remove('hidden');
+            vipSection.classList.remove('hidden');
+          } else {
+            saveBtn.disabled = false;
+            errEl.textContent = 'تعذر الحفظ، حاول مرة أخرى.';
+            errEl.classList.remove('hidden');
+          }
+        }).catch(function () {
+          saveBtn.disabled = false;
+          errEl.textContent = 'تعذر الاتصال بالخادم، حاول مرة أخرى.';
+          errEl.classList.remove('hidden');
+        });
+    };
+
+    document.getElementById('selectionLimitSection').classList.remove('hidden');
   }
 
   if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.indexOf('PASTE_') !== 0) {
@@ -247,6 +327,7 @@
     entrantChip.classList.remove('hidden');
     suggestions.classList.add('hidden');
     document.getElementById('entrantBlockedNotice').classList.add('hidden');
+    document.getElementById('selectionLimitSection').classList.add('hidden');
 
     if (allowedEntrants && allowedEntrants.indexOf(member.name) === -1) {
       showEntrantBlocked();
@@ -256,6 +337,14 @@
     document.getElementById('postEntrantNotices').classList.add('hidden');
     document.getElementById('checkSection').classList.remove('hidden');
     vipSection.classList.remove('hidden');
+
+    if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.indexOf('PASTE_') !== 0) {
+      apiPost({ action: 'myVips', entered_by_name: member.name }).then(function (res) {
+        if (res && res.ok && selectedEntrant === member && res.selected_count > res.max_selected) {
+          showSelectionLimit(res.vips, Math.min(res.max_selected, res.vips.length));
+        }
+      }).catch(function () { /* فشل الفحص لا يمنع التسجيل - مجرد أداة مساعدة */ });
+    }
   }
 
   function resetToEntrantPicker() {
@@ -268,6 +357,7 @@
     document.getElementById('checkNameInput').value = '';
     document.getElementById('checkResults').innerHTML = '';
     document.getElementById('entrantBlockedNotice').classList.add('hidden');
+    document.getElementById('selectionLimitSection').classList.add('hidden');
     vipSection.classList.add('hidden');
     successSection.classList.add('hidden');
   }
@@ -611,6 +701,10 @@
       });
       setupQrActions(qrUrl, res.vip_code, verifyUrl, function () { return badgeDataUrl || qrUrl; });
       showOnly(successSection);
+      // إعادة فحص الحد بعد كل إضافة - حتى لو العضو ضاف أكثر من واحدة بنفس الجلسة بدون إعادة اختيار نفسه
+      apiPost({ action: 'myVips', entered_by_name: selectedEntrant.name }).then(function (myVipsRes) {
+        lastMyVipsResult = (myVipsRes && myVipsRes.ok) ? myVipsRes : null;
+      }).catch(function () { lastMyVipsResult = null; });
     }).catch(function () {
       addVipBtn.disabled = false;
       addVipBtn.textContent = 'إضافة الشخصية';
@@ -620,6 +714,11 @@
   });
 
   document.getElementById('addAnotherBtn').addEventListener('click', function () {
+    if (lastMyVipsResult && lastMyVipsResult.selected_count > lastMyVipsResult.max_selected) {
+      showOnly(null);
+      showSelectionLimit(lastMyVipsResult.vips, Math.min(lastMyVipsResult.max_selected, lastMyVipsResult.vips.length));
+      return;
+    }
     resetVipForm();
     document.getElementById('waitlistNotice').classList.remove('hidden');
     showOnly(vipSection);

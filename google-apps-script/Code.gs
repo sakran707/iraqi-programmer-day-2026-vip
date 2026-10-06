@@ -16,11 +16,18 @@ var EVENT_YEAR = '2026';
 var HEADERS = [
   'vip_id', 'vip_code', 'full_name', 'workplace', 'position', 'contact_method',
   'status', 'priority', 'entered_by_name', 'entered_by_position', 'created_at', 'updated_at', 'attendance_time',
-  'needs_letter', 'attended_day1', 'attended_day1_time', 'attended_day2', 'attended_day2_time'
+  'needs_letter', 'attended_day1', 'attended_day1_time', 'attended_day2', 'attended_day2_time',
+  'selected_for_invitation'
 ];
 var VALID_STATUSES = ['مدعو', 'تم التأكيد', 'حضر', 'لم يحضر'];
 var VALID_PRIORITIES = ['عالية', 'متوسطة', 'عادية'];
 var DEFAULT_PRIORITY = 'عادية';
+var MAX_SELECTED_PER_ENTRANT = 10;
+
+/** افتراضياً كل شخصية "مُختارة للدعوة" إلا إذا صراحة انحطت لا (دعماً للصفوف القديمة الفاضية هذا الحقل) */
+function isSelectedForInvitation_(row) {
+  return row.selected_for_invitation !== 'لا';
+}
 
 function getSheet_() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -267,6 +274,65 @@ function handleAddVip_(body) {
 }
 
 /**
+ * يستخدمها العضو (بدون كلمة مرور) لمراجعة كل الشخصيات اللي أضافها بنفسه عبر
+ * كل الجلسات. تُستخدم لتحديد هل تجاوز حد الـ10 شخصيات ويحتاج يختار مين
+ * تصدر لهم الدعوة.
+ */
+function handleMyVips_(body) {
+  var enteredByName = String(body.entered_by_name || '').trim();
+  if (!enteredByName) return { error: 'missing_entrant' };
+  var sheet = getSheet_();
+  var rows = readAllRows_(sheet).filter(function (r) { return r.entered_by_name === enteredByName; });
+  var vips = rows.map(function (r) {
+    return {
+      vip_code: r.vip_code, full_name: r.full_name, workplace: r.workplace, position: r.position,
+      selected: isSelectedForInvitation_(r)
+    };
+  });
+  var selectedCount = vips.filter(function (v) { return v.selected; }).length;
+  return { ok: true, vips: vips, selected_count: selectedCount, max_selected: MAX_SELECTED_PER_ENTRANT };
+}
+
+/**
+ * يستخدمها العضو (بدون كلمة مرور) ليختار بالضبط أي شخصياته (حتى 10) تُصدر
+ * لهم دعوة فعلية؛ الباقي يبقى بالنظام كقائمة احتياط (selected_for_invitation = لا)
+ * بدون حذف. قاعدة دائمة: أي عضو عنده أكثر من 10 شخصيات لازم يختار بالضبط 10.
+ */
+function handleSetSelectedForInvitation_(body) {
+  var enteredByName = String(body.entered_by_name || '').trim();
+  var selectedCodes = Array.isArray(body.selected_codes) ? body.selected_codes.map(String) : [];
+  if (!enteredByName) return { error: 'missing_entrant' };
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    var sheet = getSheet_();
+    var rows = readAllRows_(sheet).filter(function (r) { return r.entered_by_name === enteredByName; });
+    var ownCodes = {};
+    rows.forEach(function (r) { ownCodes[r.vip_code] = true; });
+    var validSelected = selectedCodes.filter(function (c) { return ownCodes[c]; });
+
+    var required = Math.min(MAX_SELECTED_PER_ENTRANT, rows.length);
+    if (validSelected.length !== required) return { error: 'must_select_exact_count', required: required };
+
+    var selectedSet = {};
+    validSelected.forEach(function (c) { selectedSet[c] = true; });
+    var col = HEADERS.indexOf('selected_for_invitation') + 1;
+    var now = new Date().toISOString();
+    var updatedCol = HEADERS.indexOf('updated_at') + 1;
+
+    rows.forEach(function (r) {
+      sheet.getRange(r._row, col).setValue(selectedSet[r.vip_code] ? 'نعم' : 'لا');
+      sheet.getRange(r._row, updatedCol).setValue(now);
+    });
+
+    return { ok: true, selected_count: validSelected.length };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
  * يستخدمها العضو (بدون كلمة مرور) لتحديد أولوية الحضور بين أكثر من شخصية
  * VIP أضافها بنفس الجلسة، بسبب محدودية المقاعد المخصصة. لا يعرض أو يعدّل
  * أي بيانات غير الأولوية نفسها.
@@ -338,7 +404,8 @@ function handleAdminList_(body) {
       attended_day1: r.attended_day1 === 'نعم' ? 'نعم' : 'لا',
       attended_day1_time: r.attended_day1_time || '',
       attended_day2: r.attended_day2 === 'نعم' ? 'نعم' : 'لا',
-      attended_day2_time: r.attended_day2_time || ''
+      attended_day2_time: r.attended_day2_time || '',
+      selected_for_invitation: isSelectedForInvitation_(r) ? 'نعم' : 'لا'
     };
   });
   return { ok: true, rows: rows };
@@ -482,6 +549,8 @@ function doPost(e) {
     if (action === 'adminMarkAttendance') return jsonOut_(handleAdminMarkAttendance_(body));
     if (action === 'adminSetRegistrationOpen') return jsonOut_(handleAdminSetRegistrationOpen_(body));
     if (action === 'adminSetAllowedEntrants') return jsonOut_(handleAdminSetAllowedEntrants_(body));
+    if (action === 'myVips') return jsonOut_(handleMyVips_(body));
+    if (action === 'setSelectedForInvitation') return jsonOut_(handleSetSelectedForInvitation_(body));
     if (action === 'adminUpdateVip') return jsonOut_(handleAdminUpdateVip_(body));
     if (action === 'adminDeleteVip') return jsonOut_(handleAdminDeleteVip_(body));
     return jsonOut_({ error: 'unknown_action' });

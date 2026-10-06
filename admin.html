@@ -111,7 +111,7 @@
         <thead>
           <tr>
             <th>رقم VIP</th><th>اسم الشخصية</th><th>مكان العمل</th><th>المنصب</th>
-            <th>أضيفت بواسطة</th><th>الأولوية</th><th>📄 كتاب</th><th>الحالة</th>
+            <th>أضيفت بواسطة</th><th>الأولوية</th><th>📄 كتاب</th><th>مُختار للدعوة</th><th>الحالة</th>
             <th>حضور 9-10</th><th>حضور 10-10</th><th>إجراءات</th>
           </tr>
         </thead>
@@ -245,7 +245,7 @@
     var rows = allRows.filter(function (r) { return matches(r, document.getElementById('searchInput').value); });
     var headers = [
       'رقم VIP', 'اسم الشخصية', 'مكان العمل', 'المنصب', 'طريقة التواصل',
-      'أضيفت بواسطة', 'منصب المُدخل', 'الأولوية', 'يحتاج كتاب رسمي', 'الحالة', 'تاريخ التسجيل', 'وقت الحضور',
+      'أضيفت بواسطة', 'منصب المُدخل', 'الأولوية', 'يحتاج كتاب رسمي', 'مُختار للدعوة', 'الحالة', 'تاريخ التسجيل', 'وقت الحضور',
       'حضور يوم 9-10', 'وقت حضور يوم 9-10', 'حضور يوم 10-10', 'وقت حضور يوم 10-10'
     ];
     var lines = [headers.map(csvField).join(',')];
@@ -253,7 +253,7 @@
       lines.push([
         r.vip_code, r.full_name, r.workplace, r.position || '—', r.contact_method || '—',
         r.entered_by_name, r.entered_by_position, r.priority || 'عادية',
-        r.needs_letter === 'نعم' ? 'نعم' : 'لا', r.status,
+        r.needs_letter === 'نعم' ? 'نعم' : 'لا', isSelectedForInvitation(r) ? 'نعم' : 'لا', r.status,
         formatDateForExport(r.created_at), formatDateForExport(r.attendance_time),
         r.attended_day1 === 'نعم' ? 'نعم' : 'لا', formatDateForExport(r.attended_day1_time),
         r.attended_day2 === 'نعم' ? 'نعم' : 'لا', formatDateForExport(r.attended_day2_time)
@@ -358,6 +358,17 @@
     return needsLetter === 'نعم' ? '<span class="badge confirmed">نعم</span>' : '—';
   }
 
+  /** افتراضياً كل شخصية مُختارة للدعوة إلا إذا صراحة انحطت لا (نفس منطق الخادم، يدعم الصفوف القديمة الفاضية هذا الحقل) */
+  function isSelectedForInvitation(r) {
+    return r.selected_for_invitation !== 'لا';
+  }
+
+  function selectedBadge(r) {
+    return isSelectedForInvitation(r)
+      ? '<span class="badge confirmed">✓ مُختار</span>'
+      : '<span class="badge absent">قائمة احتياط</span>';
+  }
+
   function attendanceBtn(r, day) {
     var attended = (day === 1 ? r.attended_day1 : r.attended_day2) === 'نعم';
     return '<button class="btn btn-sm ' + (attended ? 'btn-primary' : 'btn-outline') +
@@ -376,6 +387,7 @@
         '<td>' + r.entered_by_name + '</td>' +
         '<td>' + priorityBadge(r.priority) + '</td>' +
         '<td>' + needsLetterBadge(r.needs_letter) + '</td>' +
+        '<td>' + selectedBadge(r) + '</td>' +
         '<td class="status-cell" data-code="' + r.vip_code + '"></td>' +
         '<td>' + attendanceBtn(r, 1) + '</td>' +
         '<td>' + attendanceBtn(r, 2) + '</td>' +
