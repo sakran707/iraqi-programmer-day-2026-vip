@@ -201,6 +201,26 @@ function normalizeArabicText_(s) {
     .trim();
 }
 
+/**
+ * ألقاب شائعة (دكتور/أستاذ/سيد...) لا تميّز شخصاً عن آخر، فتُستبعد قبل حساب
+ * التشابه - وإلا اسمان مختلفان كلياً يشتركان بلقب واحد بس يطلعون "تطابق"
+ * كاذب (مثال حقيقي صار: "ا.د. ذكرى حيدر علي عباس" طلعت "مشابهة" لـ"ا.د. حيدر
+ * مشالي" لمجرد اشتراكهم بـ"ا.د." وكلمة "حيدر" المصادفة، مع إن الاسمين فعلياً
+ * شخصين مختلفين تماماً).
+ */
+var TITLE_WORDS_ = [
+  'اد', 'امد', 'د', 'الدكتور', 'الدكتوره', 'الاستاذ', 'الاستاذه',
+  'السيد', 'السيده', 'المهندس', 'المهندسه', 'المحترم', 'المحترمه',
+  'المستشار', 'المستشاره', 'النقيب'
+];
+
+function stripTitleTokens_(normalizedText) {
+  var kept = normalizedText.split(' ').filter(function (w) {
+    return w.length > 0 && TITLE_WORDS_.indexOf(w.replace(/\./g, '')) === -1;
+  });
+  return kept.join(' ');
+}
+
 function levenshtein_(a, b) {
   var m = a.length, n = b.length;
   if (m === 0) return n;
@@ -226,8 +246,8 @@ function levenshtein_(a, b) {
  * "الدكتور احمد كريم علي حسين").
  */
 function tokenSimilarity_(a, b) {
-  var ta = normalizeArabicText_(a).split(' ').filter(function (w) { return w.length > 0; });
-  var tb = normalizeArabicText_(b).split(' ').filter(function (w) { return w.length > 0; });
+  var ta = stripTitleTokens_(normalizeArabicText_(a)).split(' ').filter(function (w) { return w.length > 0; });
+  var tb = stripTitleTokens_(normalizeArabicText_(b)).split(' ').filter(function (w) { return w.length > 0; });
   if (ta.length === 0 || tb.length === 0) return 0;
   var matched = 0;
   ta.forEach(function (wa) {
@@ -246,10 +266,13 @@ function nameSimilarity_(a, b) {
   var na = normalizeArabicText_(a), nb = normalizeArabicText_(b);
   if (!na || !nb) return 0;
   if (na === nb) return 1;
-  if (na.indexOf(nb) !== -1 || nb.indexOf(na) !== -1) return 0.95;
-  var maxLen = Math.max(na.length, nb.length);
-  var wholeSim = maxLen === 0 ? 0 : 1 - (levenshtein_(na, nb) / maxLen);
-  var tokSim = tokenSimilarity_(a, b);
+  // نقارن بالاسم الأساسي بدون الألقاب - اشتراك اسمين بلقب فقط ("ا.د."، "السيد"...) ما يعتبر تشابه حقيقي
+  var naCore = stripTitleTokens_(na) || na;
+  var nbCore = stripTitleTokens_(nb) || nb;
+  if (naCore.indexOf(nbCore) !== -1 || nbCore.indexOf(naCore) !== -1) return 0.95;
+  var maxLen = Math.max(naCore.length, nbCore.length);
+  var wholeSim = maxLen === 0 ? 0 : 1 - (levenshtein_(naCore, nbCore) / maxLen);
+  var tokSim = tokenSimilarity_(naCore, nbCore);
   return Math.max(wholeSim, tokSim);
 }
 
