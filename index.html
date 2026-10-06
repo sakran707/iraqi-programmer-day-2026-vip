@@ -49,6 +49,13 @@
     </div>
   </section>
 
+  <!-- Shown after a specific entrant selects themselves, if that entrant isn't currently allowed to add more -->
+  <section id="entrantBlockedNotice" class="card hidden">
+    <h2>شكراً لمساهمتك 🙏</h2>
+    <p class="muted">تم استكمال العدد المطلوب من الشخصيات VIP من طرفك حالياً. إذا احتجت إضافة شخصية إضافية، تواصل مع النقابة.</p>
+    <button type="button" id="blockedChangeEntrantBtn" class="btn btn-outline" style="margin-top:10px">تسجيل باسم عضو آخر</button>
+  </section>
+
   <div id="postEntrantNotices">
     <div class="notice notice-restrict">
       <b>تنويه:</b>
@@ -176,6 +183,8 @@
   var vipError = document.getElementById('vipError');
   var addVipBtn = document.getElementById('addVipBtn');
 
+  var allowedEntrants = null; // null = الكل مسموح (لا قيود)
+
   /** يخفي استمارة التسجيل بالكامل ويظهر تنويه "التسجيل متوقف" بدلاً منها */
   function showRegistrationClosed() {
     Array.prototype.forEach.call(document.querySelectorAll('main > *'), function (el) {
@@ -184,13 +193,23 @@
     document.getElementById('registrationClosedNotice').classList.remove('hidden');
   }
 
+  /** يخفي استمارة إضافة الشخصيات ويظهر تنويه "شكراً لمساهمتك" للعضو المحدد غير المسموح له حالياً */
+  function showEntrantBlocked() {
+    document.getElementById('postEntrantNotices').classList.add('hidden');
+    document.getElementById('checkSection').classList.add('hidden');
+    vipSection.classList.add('hidden');
+    document.getElementById('entrantBlockedNotice').classList.remove('hidden');
+  }
+
   if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.indexOf('PASTE_') !== 0) {
     fetch(APPS_SCRIPT_URL + (APPS_SCRIPT_URL.indexOf('?') === -1 ? '?' : '&') + 'action=registrationStatus')
       .then(function (r) { return r.json(); })
       .then(function (res) {
-        if (res && res.ok && res.open === false) showRegistrationClosed();
+        if (!res || !res.ok) return;
+        if (res.open === false) { showRegistrationClosed(); return; }
+        allowedEntrants = res.allowed_entrants || null;
       })
-      .catch(function () { /* فشل الفحص لا يمنع التسجيل - الخادم نفسه يرفض الإضافة إذا كان مغلقاً فعلاً */ });
+      .catch(function () { /* فشل الفحص لا يمنع التسجيل - الخادم نفسه يرفض الإضافة إذا كان مغلقاً أو ممنوعاً فعلاً */ });
   }
 
   function renderSuggestions(matches) {
@@ -227,12 +246,19 @@
     entrantPicker.classList.add('hidden');
     entrantChip.classList.remove('hidden');
     suggestions.classList.add('hidden');
+    document.getElementById('entrantBlockedNotice').classList.add('hidden');
+
+    if (allowedEntrants && allowedEntrants.indexOf(member.name) === -1) {
+      showEntrantBlocked();
+      return;
+    }
+
     document.getElementById('postEntrantNotices').classList.add('hidden');
     document.getElementById('checkSection').classList.remove('hidden');
     vipSection.classList.remove('hidden');
   }
 
-  changeEntrantBtn.addEventListener('click', function () {
+  function resetToEntrantPicker() {
     selectedEntrant = null;
     entrantInput.value = '';
     entrantPicker.classList.remove('hidden');
@@ -241,9 +267,13 @@
     document.getElementById('checkSection').classList.add('hidden');
     document.getElementById('checkNameInput').value = '';
     document.getElementById('checkResults').innerHTML = '';
+    document.getElementById('entrantBlockedNotice').classList.add('hidden');
     vipSection.classList.add('hidden');
     successSection.classList.add('hidden');
-  });
+  }
+
+  changeEntrantBtn.addEventListener('click', resetToEntrantPicker);
+  document.getElementById('blockedChangeEntrantBtn').addEventListener('click', resetToEntrantPicker);
 
   function verifyUrlFor(code) {
     var base = location.href.replace(/index\.html.*$/, '').replace(/\?.*$/, '');
@@ -558,6 +588,7 @@
       addVipBtn.textContent = 'إضافة الشخصية';
       if (!res.ok) {
         if (res.error === 'registration_closed') { showRegistrationClosed(); return; }
+        if (res.error === 'entrant_not_allowed') { showEntrantBlocked(); return; }
         vipError.textContent = 'تعذر حفظ البيانات، حاول مرة أخرى.';
         vipError.classList.remove('hidden');
         return;

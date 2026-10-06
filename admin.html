@@ -103,6 +103,7 @@
       <button type="button" id="printBtn" class="btn btn-outline btn-sm">🖨 تقرير PDF</button>
       <button type="button" id="refreshBtn" class="btn btn-outline btn-sm">تحديث</button>
       <button type="button" id="regToggleBtn" class="btn btn-danger-outline btn-sm">إيقاف استلام الطلبات</button>
+      <button type="button" id="manageEntrantsBtn" class="btn btn-outline btn-sm">إدارة صلاحية الإضافة</button>
     </div>
 
     <div class="table-wrap">
@@ -129,6 +130,7 @@
 
 <script src="assets/config.js?v=3"></script>
 <script src="assets/listbox.js"></script>
+<script src="assets/members.js"></script>
 <script>
 (function () {
   var STATUSES = ['مدعو', 'تم التأكيد', 'حضر', 'لم يحضر'];
@@ -136,6 +138,7 @@
   var allRows = [];
   var adminPassword = '';
   var registrationOpen = true;
+  var allowedEntrants = null; // null = كل الأعضاء الـ23 مسموح لهم
 
   var gate = document.getElementById('gate');
   var dashboard = document.getElementById('dashboard');
@@ -172,7 +175,11 @@
       renderStats();
       renderTable(document.getElementById('searchInput').value);
       apiPost({ action: 'registrationStatus' }).then(function (statusRes) {
-        if (statusRes && statusRes.ok) { registrationOpen = statusRes.open; refreshRegistrationToggle(); }
+        if (statusRes && statusRes.ok) {
+          registrationOpen = statusRes.open;
+          allowedEntrants = statusRes.allowed_entrants || null;
+          refreshRegistrationToggle();
+        }
       });
       if (onDone) onDone();
     }).catch(function () {
@@ -544,6 +551,70 @@
       alert('تعذر الاتصال بالخادم، حاول مرة أخرى.');
     });
   });
+
+  /** يفتح نافذة لتحديد مين من الـ23 عضو مسموح له حالياً بإضافة شخصيات VIP جديدة */
+  function openEntrantsManager() {
+    var currentlyAllowed = allowedEntrants; // null = الكل مسموح
+    var optionsHtml = MEMBERS.map(function (m, i) {
+      var checked = !currentlyAllowed || currentlyAllowed.indexOf(m.name) !== -1;
+      return '<label class="checkbox-label" style="display:flex;align-items:flex-start;gap:8px;margin-bottom:8px">' +
+        '<input type="checkbox" class="entrant-allow-cb" data-name="' + m.name.replace(/"/g, '&quot;') + '"' + (checked ? ' checked' : '') + '>' +
+        '<span><b>' + m.name + '</b><br><span class="muted" style="font-size:.85rem">' + m.position + '</span></span>' +
+        '</label>';
+    }).join('');
+
+    modalHost.innerHTML =
+      '<div class="modal-backdrop" id="backdrop"><div class="modal">' +
+      '<h3>إدارة صلاحية إضافة الشخصيات VIP</h3>' +
+      '<p class="muted" style="margin-bottom:12px">فك التحديد عن أي عضو يمنعه من إضافة شخصيات جديدة (استمارة التسجيل العامة)، بدون ما يأثر على الشخصيات اللي أضافها سابقاً.</p>' +
+      '<div class="row-2" style="margin-bottom:12px">' +
+      '<button type="button" class="btn btn-outline btn-sm" id="entrantsSelectAllBtn">تحديد الكل</button>' +
+      '<button type="button" class="btn btn-outline btn-sm" id="entrantsClearAllBtn">إلغاء تحديد الكل</button>' +
+      '</div>' +
+      '<div class="stack" style="max-height:50vh;overflow-y:auto">' + optionsHtml + '</div>' +
+      '<div id="entrantsError" class="muted hidden" style="color:var(--fail);margin-top:8px"></div>' +
+      '<div class="row-2" style="margin-top:14px">' +
+      '<button type="button" class="btn btn-outline" id="cancelEntrantsBtn">إلغاء</button>' +
+      '<button type="button" class="btn btn-primary" id="saveEntrantsBtn">حفظ</button>' +
+      '</div></div></div>';
+
+    document.getElementById('cancelEntrantsBtn').addEventListener('click', closeModal);
+    document.getElementById('backdrop').addEventListener('click', function (e) { if (e.target.id === 'backdrop') closeModal(); });
+    document.getElementById('entrantsSelectAllBtn').addEventListener('click', function () {
+      document.querySelectorAll('.entrant-allow-cb').forEach(function (cb) { cb.checked = true; });
+    });
+    document.getElementById('entrantsClearAllBtn').addEventListener('click', function () {
+      document.querySelectorAll('.entrant-allow-cb').forEach(function (cb) { cb.checked = false; });
+    });
+    document.getElementById('saveEntrantsBtn').addEventListener('click', function () {
+      var checked = Array.prototype.filter.call(document.querySelectorAll('.entrant-allow-cb'), function (cb) { return cb.checked; });
+      var names = checked.map(function (cb) { return cb.getAttribute('data-name'); });
+      // تحديد الكل (23 من 23) = معاملته كـ"بدون قيود" بدل تخزين قائمة كاملة بلا داعي
+      var payloadAllowed = (names.length === MEMBERS.length) ? [] : names;
+      var btn = document.getElementById('saveEntrantsBtn');
+      btn.disabled = true;
+      apiPost({ action: 'adminSetAllowedEntrants', password: adminPassword, allowed: payloadAllowed }).then(function (res) {
+        btn.disabled = false;
+        if (res.ok) {
+          allowedEntrants = res.allowed_entrants || null;
+          closeModal();
+        } else {
+          var err = document.getElementById('entrantsError');
+          console.error('adminSetAllowedEntrants failed:', res);
+          err.textContent = 'تعذر الحفظ. السبب الأرجح: نسخة Apps Script المنشورة قديمة - يلزم إعادة نشر آخر Code.gs.';
+          err.classList.remove('hidden');
+        }
+      }).catch(function (err) {
+        btn.disabled = false;
+        console.error('adminSetAllowedEntrants network error:', err);
+        var errBox = document.getElementById('entrantsError');
+        errBox.textContent = 'تعذر الاتصال بالخادم، حاول مرة أخرى.';
+        errBox.classList.remove('hidden');
+      });
+    });
+  }
+
+  document.getElementById('manageEntrantsBtn').addEventListener('click', openEntrantsManager);
 
   document.getElementById('gateBtn').addEventListener('click', function () {
     adminPassword = document.getElementById('pwInput').value;

@@ -60,14 +60,48 @@ function isRegistrationOpen_() {
   return v !== 'false';
 }
 
+/**
+ * قائمة الأعضاء المسموح لهم حالياً بإضافة شخصيات VIP جديدة، بشكل مستقل عن
+ * مفتاح REGISTRATION_OPEN العام. تُخزَّن كـ JSON array بخاصية ALLOWED_ENTRANTS.
+ * فاضية أو غير موجودة = كل الأعضاء الـ23 مسموح لهم (السلوك الافتراضي).
+ */
+function getAllowedEntrants_() {
+  var raw = PropertiesService.getScriptProperties().getProperty('ALLOWED_ENTRANTS');
+  if (!raw) return null; // null = الكل مسموح
+  try {
+    var list = JSON.parse(raw);
+    return Array.isArray(list) ? list : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function isEntrantAllowed_(name) {
+  var allowed = getAllowedEntrants_();
+  if (!allowed) return true; // ماكو قيود مفعّلة
+  return allowed.indexOf(name) !== -1;
+}
+
 function handleRegistrationStatus_() {
-  return { ok: true, open: isRegistrationOpen_() };
+  return { ok: true, open: isRegistrationOpen_(), allowed_entrants: getAllowedEntrants_() };
 }
 
 function handleAdminSetRegistrationOpen_(body) {
   if (!checkAdmin_(body.password)) return { error: 'unauthorized' };
   PropertiesService.getScriptProperties().setProperty('REGISTRATION_OPEN', body.open ? 'true' : 'false');
   return { ok: true, open: isRegistrationOpen_() };
+}
+
+function handleAdminSetAllowedEntrants_(body) {
+  if (!checkAdmin_(body.password)) return { error: 'unauthorized' };
+  var list = Array.isArray(body.allowed) ? body.allowed : null;
+  var props = PropertiesService.getScriptProperties();
+  if (!list || list.length === 0) {
+    props.deleteProperty('ALLOWED_ENTRANTS');
+  } else {
+    props.setProperty('ALLOWED_ENTRANTS', JSON.stringify(list));
+  }
+  return { ok: true, allowed_entrants: getAllowedEntrants_() };
 }
 
 /**
@@ -211,6 +245,7 @@ function handleAddVip_(body) {
   if (!fullName) return { error: 'missing_full_name' };
   if (!workplace) return { error: 'missing_workplace' };
   if (!enteredByName || !enteredByPosition) return { error: 'missing_entrant' };
+  if (!isEntrantAllowed_(enteredByName)) return { error: 'entrant_not_allowed' };
 
   var lock = LockService.getScriptLock();
   lock.waitLock(30000);
@@ -446,6 +481,7 @@ function doPost(e) {
     if (action === 'adminUpdateStatus') return jsonOut_(handleAdminUpdateStatus_(body));
     if (action === 'adminMarkAttendance') return jsonOut_(handleAdminMarkAttendance_(body));
     if (action === 'adminSetRegistrationOpen') return jsonOut_(handleAdminSetRegistrationOpen_(body));
+    if (action === 'adminSetAllowedEntrants') return jsonOut_(handleAdminSetAllowedEntrants_(body));
     if (action === 'adminUpdateVip') return jsonOut_(handleAdminUpdateVip_(body));
     if (action === 'adminDeleteVip') return jsonOut_(handleAdminDeleteVip_(body));
     return jsonOut_({ error: 'unknown_action' });
