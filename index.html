@@ -220,8 +220,17 @@
     }).then(function (r) { return r.json(); });
   }
 
-  /** يعرض شاشة اختيار 10 شخصيات بالضبط لعضو تجاوز الحد، ويخفي باقي استمارة التسجيل لحد ما يحل الموضوع */
-  function showSelectionLimit(vips, required) {
+  /** يظهر استمارة إضافة الشخصيات العادية بعد التأكد من عدم الحظر وعدم تجاوز الحد */
+  function showAddForm() {
+    document.getElementById('postEntrantNotices').classList.add('hidden');
+    document.getElementById('checkSection').classList.remove('hidden');
+    vipSection.classList.remove('hidden');
+  }
+
+  /** يعرض شاشة اختيار 10 شخصيات بالضبط لعضو تجاوز الحد، ويخفي باقي استمارة التسجيل لحد ما يحل الموضوع.
+   * isBlocked: العضو ممنوع من إضافة شخصيات جديدة - تصفية المُسجل فعلاً إلى 10 إنهاء مسموح حتى لو كان ممنوعاً،
+   * لكن بعد الحفظ يرجع لشاشة "ممنوع" بدل استمارة الإضافة. */
+  function showSelectionLimit(vips, required, isBlocked) {
     document.getElementById('postEntrantNotices').classList.add('hidden');
     document.getElementById('checkSection').classList.add('hidden');
     document.getElementById('entrantBlockedNotice').classList.add('hidden');
@@ -263,9 +272,7 @@
           if (res.ok) {
             lastMyVipsResult = null; // استُهلكت الحالة القديمة؛ تحل عند أول إضافة لاحقة
             document.getElementById('selectionLimitSection').classList.add('hidden');
-            document.getElementById('postEntrantNotices').classList.add('hidden');
-            document.getElementById('checkSection').classList.remove('hidden');
-            vipSection.classList.remove('hidden');
+            if (isBlocked) { showEntrantBlocked(); } else { showAddForm(); }
           } else {
             saveBtn.disabled = false;
             errEl.textContent = 'تعذر الحفظ، حاول مرة أخرى.';
@@ -329,19 +336,17 @@
     document.getElementById('entrantBlockedNotice').classList.add('hidden');
     document.getElementById('selectionLimitSection').classList.add('hidden');
 
-    if (allowedEntrants && allowedEntrants.indexOf(member.name) === -1) {
-      showEntrantBlocked();
-      return;
-    }
+    var isBlocked = !!(allowedEntrants && allowedEntrants.indexOf(member.name) === -1);
 
-    document.getElementById('postEntrantNotices').classList.add('hidden');
-    document.getElementById('checkSection').classList.remove('hidden');
-    vipSection.classList.remove('hidden');
+    // نعرض النتيجة الفورية المعروفة محلياً (نموذج الإضافة أو تنويه الحظر) بدون انتظار الشبكة،
+    // لكن فحص تجاوز الحد القادم من الخادم يستبدلها بشاشة "اختر 10" إذا احتاج - التصفية إلى 10
+    // إنهاء لشخصيات مُسجلة فعلاً، وليست "إضافة جديدة"، فمسموحة حتى لو كان العضو ممنوعاً من الإضافة.
+    if (isBlocked) { showEntrantBlocked(); } else { showAddForm(); }
 
     if (APPS_SCRIPT_URL && APPS_SCRIPT_URL.indexOf('PASTE_') !== 0) {
       apiPost({ action: 'myVips', entered_by_name: member.name }).then(function (res) {
         if (res && res.ok && selectedEntrant === member && res.selected_count > res.max_selected) {
-          showSelectionLimit(res.vips, Math.min(res.max_selected, res.vips.length));
+          showSelectionLimit(res.vips, Math.min(res.max_selected, res.vips.length), isBlocked);
         }
       }).catch(function () { /* فشل الفحص لا يمنع التسجيل - مجرد أداة مساعدة */ });
     }
@@ -714,11 +719,13 @@
   });
 
   document.getElementById('addAnotherBtn').addEventListener('click', function () {
+    var isBlocked = !!(allowedEntrants && selectedEntrant && allowedEntrants.indexOf(selectedEntrant.name) === -1);
     if (lastMyVipsResult && lastMyVipsResult.selected_count > lastMyVipsResult.max_selected) {
       showOnly(null);
-      showSelectionLimit(lastMyVipsResult.vips, Math.min(lastMyVipsResult.max_selected, lastMyVipsResult.vips.length));
+      showSelectionLimit(lastMyVipsResult.vips, Math.min(lastMyVipsResult.max_selected, lastMyVipsResult.vips.length), isBlocked);
       return;
     }
+    if (isBlocked) { showOnly(null); showEntrantBlocked(); return; }
     resetVipForm();
     document.getElementById('waitlistNotice').classList.remove('hidden');
     showOnly(vipSection);
