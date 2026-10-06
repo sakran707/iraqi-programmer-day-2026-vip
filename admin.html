@@ -101,6 +101,8 @@
       <input type="text" id="searchInput" placeholder="ابحث بالاسم، مكان العمل، المنصب، رقم VIP، أو اسم المُدخل">
       <button type="button" id="exportBtn" class="btn btn-outline btn-sm">⬇ تصدير Excel</button>
       <button type="button" id="printBtn" class="btn btn-outline btn-sm">🖨 تقرير PDF</button>
+      <button type="button" id="exportSelectedBtn" class="btn btn-primary btn-sm">⬇ تصدير Excel (القائمة بعد الترشيح لـ10)</button>
+      <button type="button" id="printSelectedBtn" class="btn btn-primary btn-sm">🖨 تقرير PDF (القائمة بعد الترشيح لـ10)</button>
       <button type="button" id="refreshBtn" class="btn btn-outline btn-sm">تحديث</button>
       <button type="button" id="regToggleBtn" class="btn btn-danger-outline btn-sm">إيقاف استلام الطلبات</button>
       <button type="button" id="manageEntrantsBtn" class="btn btn-outline btn-sm">إدارة صلاحية الإضافة</button>
@@ -210,8 +212,8 @@
     return Object.keys(map).map(function (k) { return map[k]; }).sort(function (a, b) { return b.items.length - a.items.length; });
   }
 
-  function computeEntrantBreakdown() {
-    return groupByEntrant(allRows).map(function (g) {
+  function computeEntrantBreakdown(rowsList) {
+    return groupByEntrant(rowsList || allRows).map(function (g) {
       return { name: g.name, position: g.position, count: g.items.length };
     });
   }
@@ -241,8 +243,11 @@
     return s;
   }
 
-  function exportCsv() {
+  /** onlySelected: يصدّر فقط الشخصيات المُختارة للدعوة (القائمة بعد ترشيح كل عضو لـ10) -
+   * البيانات القديمة بالنظام ما تتأثر، هذا مجرد تصدير مُفلتر لنفس البيانات. */
+  function exportCsv(onlySelected) {
     var rows = allRows.filter(function (r) { return matches(r, document.getElementById('searchInput').value); });
+    if (onlySelected) rows = rows.filter(isSelectedForInvitation);
     var headers = [
       'رقم VIP', 'اسم الشخصية', 'مكان العمل', 'المنصب', 'طريقة التواصل',
       'أضيفت بواسطة', 'منصب المُدخل', 'الأولوية', 'يحتاج كتاب رسمي', 'مُختار للدعوة', 'الحالة', 'تاريخ التسجيل', 'وقت الحضور',
@@ -261,9 +266,9 @@
     });
 
     lines.push('');
-    lines.push(csvField('عدد الشخصيات المضافة حسب كل عضو'));
-    lines.push(['اسم العضو', 'المنصب', 'عدد الشخصيات المضافة'].map(csvField).join(','));
-    computeEntrantBreakdown().forEach(function (b) {
+    lines.push(csvField(onlySelected ? 'عدد الشخصيات المُختارة للدعوة حسب كل عضو' : 'عدد الشخصيات المضافة حسب كل عضو'));
+    lines.push(['اسم العضو', 'المنصب', onlySelected ? 'عدد الشخصيات المُختارة' : 'عدد الشخصيات المضافة'].map(csvField).join(','));
+    computeEntrantBreakdown(onlySelected ? allRows.filter(isSelectedForInvitation) : null).forEach(function (b) {
       lines.push([b.name, b.position, b.count].map(csvField).join(','));
     });
 
@@ -273,18 +278,22 @@
     var a = document.createElement('a');
     var today = new Date().toISOString().slice(0, 10);
     a.href = url;
-    a.download = 'programmer-day-2026-vip-list-' + today + '.csv';
+    a.download = 'programmer-day-2026-vip-list' + (onlySelected ? '-selected-10' : '') + '-' + today + '.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
   }
 
-  function printReport() {
+  /** onlySelected: يطبع فقط الشخصيات المُختارة للدعوة (القائمة بعد ترشيح كل عضو لـ10) -
+   * البيانات القديمة بالنظام ما تتأثر، هذا مجرد تقرير مُفلتر لنفس البيانات. */
+  function printReport(onlySelected) {
     var rows = allRows.filter(function (r) { return matches(r, document.getElementById('searchInput').value); });
+    if (onlySelected) rows = rows.filter(isSelectedForInvitation);
     var now = new Date();
     var generatedAt = now.toISOString().replace('T', ' ').slice(0, 16);
     var query = document.getElementById('searchInput').value.trim();
+    var selectedCount = allRows.filter(isSelectedForInvitation).length;
 
     var groupsHtml = groupByEntrant(rows).map(function (g) {
       var itemRows = g.items.map(function (r) {
@@ -307,7 +316,7 @@
       '</div>';
     }).join('');
 
-    var breakdownRowsHtml = computeEntrantBreakdown().map(function (b) {
+    var breakdownRowsHtml = computeEntrantBreakdown(onlySelected ? allRows.filter(isSelectedForInvitation) : null).map(function (b) {
       return '<tr><td>' + b.name + '</td><td>' + b.position + '</td><td>' + b.count + '</td></tr>';
     }).join('');
 
@@ -315,7 +324,7 @@
       '<div class="p-head">' +
         '<img src="assets/union-logo.webp" alt="">' +
         '<div>' +
-          '<h1>تقرير الشخصيات VIP — يوم المبرمج العراقي 2026</h1>' +
+          '<h1>' + (onlySelected ? 'تقرير الشخصيات VIP المُختارة للدعوة (بعد الترشيح لـ10) — يوم المبرمج العراقي 2026' : 'تقرير الشخصيات VIP — يوم المبرمج العراقي 2026') + '</h1>' +
           '<p>نقابة المبرمجين العراقيين — تاريخ التقرير: ' + generatedAt +
           (query ? ' — تصفية بالبحث: "' + query + '"' : '') +
           '</p>' +
@@ -323,15 +332,16 @@
       '</div>' +
       '<div class="p-stats">' +
         '<div>الإجمالي: <b>' + allRows.length + '</b></div>' +
+        '<div>المُختارون للدعوة: <b>' + selectedCount + '</b></div>' +
         '<div>تم التأكيد: <b>' + allRows.filter(function (r) { return r.status === 'تم التأكيد'; }).length + '</b></div>' +
         '<div>حضر: <b>' + allRows.filter(function (r) { return r.status === 'حضر'; }).length + '</b></div>' +
         '<div>لم يحضر: <b>' + allRows.filter(function (r) { return r.status === 'لم يحضر'; }).length + '</b></div>' +
         '<div>حضور 9-10: <b>' + allRows.filter(function (r) { return r.attended_day1 === 'نعم'; }).length + '</b></div>' +
         '<div>حضور 10-10: <b>' + allRows.filter(function (r) { return r.attended_day2 === 'نعم'; }).length + '</b></div>' +
       '</div>' +
-      '<h2 class="p-subhead" style="margin-top:0">عدد الشخصيات المضافة حسب كل عضو</h2>' +
+      '<h2 class="p-subhead" style="margin-top:0">' + (onlySelected ? 'عدد الشخصيات المُختارة للدعوة حسب كل عضو' : 'عدد الشخصيات المضافة حسب كل عضو') + '</h2>' +
       '<table>' +
-        '<thead><tr><th>اسم العضو</th><th>المنصب</th><th>عدد الشخصيات المضافة</th></tr></thead>' +
+        '<thead><tr><th>اسم العضو</th><th>المنصب</th><th>' + (onlySelected ? 'عدد الشخصيات المُختارة' : 'عدد الشخصيات المضافة') + '</th></tr></thead>' +
         '<tbody>' + breakdownRowsHtml + '</tbody>' +
       '</table>' +
       '<h2 class="p-subhead">تفاصيل الشخصيات حسب كل عضو</h2>' +
@@ -526,8 +536,10 @@
     renderTable(e.target.value);
   });
   document.getElementById('refreshBtn').addEventListener('click', function () { loadList(); });
-  document.getElementById('exportBtn').addEventListener('click', exportCsv);
-  document.getElementById('printBtn').addEventListener('click', printReport);
+  document.getElementById('exportBtn').addEventListener('click', function () { exportCsv(false); });
+  document.getElementById('printBtn').addEventListener('click', function () { printReport(false); });
+  document.getElementById('exportSelectedBtn').addEventListener('click', function () { exportCsv(true); });
+  document.getElementById('printSelectedBtn').addEventListener('click', function () { printReport(true); });
 
   function refreshRegistrationToggle() {
     var btn = document.getElementById('regToggleBtn');
